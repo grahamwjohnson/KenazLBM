@@ -28,3 +28,6 @@ dev = [
   "black",
   "ruff"
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
