@@ -2,7 +2,7 @@
 
 This is the step-by-step guide on how to install and use KenazLBM on raw intracranial EEG data. 
 
-# Conda install
+# Conda Install
 
 ```bash
 curl -O https://repo.anaconda.com/archive/Anaconda3-2025.06-0-Linux-x86_64.sh
