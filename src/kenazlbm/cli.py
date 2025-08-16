@@ -1,9 +1,9 @@
 # src/kenazlbm/cli.py
 import argparse
 from .preprocess import preprocess_file
-from .bse import run_bse       # Brain-State Embedder (inference)
-from .bsp import run_bsp       # Brain-State Predictor (inference)
-from .bsv import run_bsv       # Brain-State Visualizer (inference)
+from .core import run_bse       # Brain-State Embedder (inference)
+from .core import run_bsp       # Brain-State Predictor (inference)
+from .core import run_bsv       # Brain-State Visualizer (inference)
 
 def main():
     parser = argparse.ArgumentParser(
