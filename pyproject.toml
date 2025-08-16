@@ -11,11 +11,10 @@ authors = [
 ]
 readme = "README.md"
 license = { text = "Academic Only" }
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
   "numpy",
   "torch",
-  "scipy",
 ]
 
 [project.optional-dependencies]
