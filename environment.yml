@@ -1,16 +1,28 @@
-# environment.yml
 name: kenazlbm
 channels:
   - conda-forge
   - defaults
 dependencies:
+  # ---------------- Conda packages ----------------
   - python=3.12
   - pip
   - numpy
   - scipy
-  - pytorch
+  - pandas
+  - scikit-learn
+  - matplotlib
+  - seaborn
+  - torch
+  - tqdm
+  - h5py
+  - mne
+  - einops
+
+  # ---------------- pip packages ----------------
   - pip:
+      # Install your GitHub project directly (includes CLI)
       - git+https://github.com/grahamwjohnson/KenazLBM.git#egg=kenazlbm
+      # Documentation tools for ReadTheDocs
       - sphinx
       - sphinx-rtd-theme
       - myst-parser
