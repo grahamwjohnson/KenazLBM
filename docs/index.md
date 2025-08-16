@@ -2,9 +2,10 @@
 
 This is the ste-by-step guide on how to install and use KenazLBM on raw intracranial EEG data. 
 
-## Getting Started
+# Installation
 
-Here’s how to install KenazLBM on Ubuntu 22.04:
+The easiest way to install **KenazLBM** is with Conda:
 
 ```bash
-pip install kenazlbm
+conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/main/environment.yml
+conda activate kenazlbm
