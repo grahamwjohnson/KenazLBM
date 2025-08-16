@@ -1,16 +1,10 @@
-# Welcome to My Project
+# Kenaz Large Brain-State Model (KenazLBM)
 
-This is the **home page** of your documentation.
-
-You can write normal Markdown:
-
-- Easy to write
-- Easy to read
-- Works on GitHub and Read the Docs
+This is the ste-by-step guide on how to install and use KenazLBM on raw intracranial EEG data. 
 
 ## Getting Started
 
-Here’s how to install your project:
+Here’s how to install KenazLBM on Ubuntu 22.04:
 
 ```bash
 pip install myproject
