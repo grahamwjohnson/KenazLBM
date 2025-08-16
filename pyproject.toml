@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kenazlbm"
+version = "0.1.0"
+description = "Large Brain-State Model (LBM) - KenazLM"
+authors = [
+  { name = "Graham Johnson", email = "grahamwjohnson@gmail.com" }
+]
+readme = "README.md"
+license = { text = "Academic Only" }
+requires-python = ">=3.9"
+dependencies = [
+  "numpy",
+  "torch",
+  "scipy",
+]
+
+[project.optional-dependencies]
+docs = [
+  "sphinx",
+  "sphinx-rtd-theme",
+  "myst-parser"
+]
+dev = [
+  "pytest",
+  "black",
+  "ruff"
+]
