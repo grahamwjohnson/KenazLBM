@@ -7,4 +7,4 @@ This is the ste-by-step guide on how to install and use KenazLBM on raw intracra
 Here’s how to install KenazLBM on Ubuntu 22.04:
 
 ```bash
-pip install myproject
+pip install kenazlbm
