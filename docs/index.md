@@ -10,9 +10,13 @@ curl -O https://repo.anaconda.com/archive/Anaconda3-2025.06-0-Linux-x86_64.sh
 
 # KenazLBM Installation
 
-The easiest way to install **KenazLBM** is with Conda:
+After conda is installed, install **KenazLBM** with following line:
 
 ```bash
 conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/main/environment.yml
+```
+
+# Conda Environment Activation
+```bash
 conda activate kenazlbm
 ```
