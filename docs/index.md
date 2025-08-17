@@ -18,5 +18,5 @@ conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/ma
 
 # Conda Environment Activation
 ```bash
-conda activate kenazlbm
+conda activate lbm_env
 ```
