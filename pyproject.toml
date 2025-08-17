@@ -10,7 +10,7 @@ authors = [
   { name = "Graham Johnson", email = "grahamwjohnson@gmail.com" }
 ]
 readme = "README.md"
-license = { text = "Academic Only" }
+license = "LICENSE.md"
 requires-python = ">=3.12"
 dependencies = [
   "numpy",
