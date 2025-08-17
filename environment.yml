@@ -12,7 +12,6 @@ dependencies:
   - matplotlib
   - pandas
   - seaborn
-  - torch
   - pip
   - pip:
       - git+https://github.com/grahamwjohnson/KenazLBM.git#egg=kenazlbm
