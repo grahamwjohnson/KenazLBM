@@ -17,7 +17,6 @@ dependencies:
       - myst-parser
       - torchinfo
       - torch
-      - math
       - os
       - pickle
       - requests
