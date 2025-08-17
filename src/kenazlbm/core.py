@@ -1,7 +1,7 @@
 # src/kenazlbm/core.py
 import os
 import torch
-from hubconfig import _get_conda_cache, CONFIGS,  _load_models
+from .hubconfig import _get_conda_cache, CONFIGS,  _load_models
 
 def prefetch_models(codename='commongonolek_sheldrake', env_prefix=None):
     """
