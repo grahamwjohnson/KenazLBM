@@ -1,6 +1,7 @@
 import torch
 import pickle
 import os
+import requests
 import numpy as np
 from kenazlbm.BSE import BSE, Discriminator
 from kenazlbm.BSP import BSP, BSV
@@ -194,29 +195,58 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
     som = None
     if load_som:
         try:
-            url = f"https://github.com/grahamwjohnson/kenazlbm/releases/download/{config['release_tag']}/{config['som_file']}"
-            cached_path = _cached_or_download(url, config['som_file'])
+            weight_file = config['som_file']
+            release_tag = config['release_tag']
+            checkpoint_url = f'https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{release_tag}/{weight_file}'
+            checkpoint = torch.hub.load_state_dict_from_url(checkpoint_url, progress=True, map_location='cpu', weights_only=False)
 
-            # Use safe_globals for numpy scalar and weights_only=False for full checkpoint
-            safe_globals = [np._core.multiarray.scalar]
-            with torch.serialization.safe_globals(safe_globals):
-                checkpoint = torch.load(cached_path, map_location='cpu', weights_only=False)
+            # Retrieve hyperparameters
+            grid_size = som_gridsize = checkpoint['grid_size']
+            input_dim = checkpoint['input_dim']
+            lr = checkpoint['lr']
+            sigma = checkpoint['sigma']
+            pca = checkpoint['pca']
+            lr_epoch_decay = checkpoint['lr_epoch_decay']
+            sigma_epoch_decay = checkpoint['sigma_epoch_decay']
+            sigma_min = checkpoint['sigma_min']
+            epoch = checkpoint['epoch']
+            batch_size = checkpoint['batch_size']
+            cim_kernel_sigma = checkpoint['cim_kernel_sigma']
 
-            som = ToroidalSOM_2(**checkpoint)  # adjust as needed
+
+            # Create Toroidal SOM instance with same parameters
+            som = ToroidalSOM_2(grid_size=(grid_size, grid_size), input_dim=input_dim, batch_size=batch_size,
+                            lr=lr, lr_epoch_decay=lr_epoch_decay, cim_kernel_sigma=cim_kernel_sigma, sigma=sigma,
+                            sigma_epoch_decay=sigma_epoch_decay, sigma_min=sigma_min, pca=pca, device='cpu', data_for_init=None)
+
+            # Load weights
             som.load_state_dict(checkpoint['model_state_dict'])
+            som.weights = checkpoint['weights']
 
+            print(f"Toroidal SOM model loaded from {checkpoint_url}")
+            
         except Exception as e:
-            print(f"Error loading SOM weights: {e}")
+            print(f"Error loading som for codename '{codename}': {e}")
+            print("Returning empty variable")
 
-        # Loading the axis pickled file
         try:
-            axis_url = f"https://github.com/grahamwjohnson/kenazlbm/releases/download/{config['release_tag']}/{config['som_axis_file']}"
-            axis_cache_path = _cached_or_download(axis_url, config['som_axis_file'])
-            with open(axis_cache_path, "rb") as f:
-                # Use fix_imports=True in case of older pickle
-                som.axis_data = pickle.load(f, fix_imports=True)
+            # Load the som axis for plotting
+            axis_file = config['som_axis_file']
+            release_tag = config['release_tag']
+            axis_url = f'https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{release_tag}/{axis_file}'
+
+            response = requests.get(axis_url)
+            response.raise_for_status()  # Ensure download was successful
+
+            # Load directly from bytes in memory
+            som.axis_data = pickle.loads(response.content, fix_imports=True)
+
+            print(f"Toroidal SOM pre-made axis loaded from {checkpoint_url}")
+
+
         except Exception as e:
-            print(f"Error loading SOM plot info: {e}")
+            print(f"Error loading som axis file for codename '{codename}': {e}")
+            print("Returning empty variable")
 
     return bse, disc, bsp, bsv, som, config
 
