@@ -25,8 +25,8 @@ def main():
     parser_pre.add_argument("--output", type=str, default=None, help="Optional path to output directory (default: same as input directory)")
 
     # ----------------- run_bsv command -----------------
-    parser_bsv = subparsers.add_parser("run_bsv", help="Run Brain-State Visualizer inference on structured directory: <dir>/<subject_id>/pp_bse_*.pkl")
-    parser_bsv.add_argument("--input", type=str, required=True, help="Path to input directory with structure: <dir>/<subject_id>/pp_bse_*.pkl")
+    parser_bsv = subparsers.add_parser("run_bsv", help="Run Brain-State Visualizer inference on structured directory: <dir>/<subject_id>/pp_bse_bsp_*.pkl")
+    parser_bsv.add_argument("--input", type=str, required=True, help="Path to input directory with structure: <dir>/<subject_id>/pp_bse_bsp_*.pkl")
     parser_pre.add_argument("--output", type=str, default=None, help="Optional path to output directory (default: same as input directory)")
 
     # Parse args
