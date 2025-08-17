@@ -9,7 +9,7 @@ def preprocess(raw_dir):
 def run_bse(preprocessed_dir):
     print("Need to code")
 
-def run_bse(postbse_dir):
+def run_bsp(postbse_dir):
     print("Need to code")
 
 def run_bsv(postbsp_dir):
