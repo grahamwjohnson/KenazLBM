@@ -15,3 +15,13 @@ dependencies:
       - sphinx
       - sphinx-rtd-theme
       - myst-parser
+      - torchinfo
+      - torch
+      - math
+      - os
+      - pickle
+      - requests
+      - yaml
+      - numpy
+      - glob
+      - re
