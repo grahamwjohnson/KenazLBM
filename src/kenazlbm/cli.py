@@ -29,6 +29,7 @@ def main():
     parser_bsv = subparsers.add_parser("run_bsv", help="Run Brain-State Visualizer inference: <dir>/<subject_id>/*_pp_bse.pkl")
     parser_bsv.add_argument("--input", type=str, required=True, help="Input directory: <dir>/<subject_id>/*_pp_bse.pkl")
     parser_bsv.add_argument("--output", type=str, default=None, help="Optional output directory (default: same as input)")
+    parser_bsv.add_argument("--file_pattern", type=str, default=None, help="Must specificy file_pattern because BSV can be run before or after BSP, thus can either do '*_pp_bse.pkl' or '*_pp_bse_bsp.pkl'")
 
     args = parser.parse_args()
     if args.command == "prefetch_models": prefetch_models(force=args.force)
@@ -36,7 +37,7 @@ def main():
     elif args.command == "preprocess": validate_directory_structure(args.input, file_pattern="*.edf"); preprocess_directory(args.input, args.output)
     elif args.command == "run_bse": validate_directory_structure(args.input, file_pattern="*_pp.pkl"); run_bse(args.input, args.output)
     elif args.command == "run_bsp": validate_directory_structure(args.input, file_pattern="*_pp_bse.pkl"); run_bsp(args.input, args.output)
-    elif args.command == "run_bsv": validate_directory_structure(args.input, file_pattern="*_pp_bse.pkl"); run_bsv(args.input, args.output)
+    elif args.command == "run_bsv": validate_directory_structure(args.input, file_pattern=args.file_pattern); run_bsv(args.input, args.file_pattern, args.output)
     else: parser.print_help()
 
 if __name__ == "__main__": main()

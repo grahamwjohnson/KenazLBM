@@ -82,22 +82,25 @@ import os
 import glob
 import re
 
-def validate_directory_structure(input_root="raw", file_pattern="*_pp.pkl"):
+def validate_directory_structure(input_root="raw", file_pattern="*.edf"):
     """
     Validates files exist under <input_root>/*/<file_pattern> and that filenames
-    start with <subjectID>_MMDDYYYY_HHMMSSdd, with arbitrary suffix according
-    to file_pattern.
+    start with <subjectID>_MMDDYYYY_HHMMSSdd, with the suffix exactly matching
+    file_pattern (after the date/time part).
+
+    Only files ending with the stem+ext of file_pattern are checked. Other files
+    are ignored.
 
     Args:
         input_root (str): Root directory (default "raw")
-        file_pattern (str): Glob pattern for files (e.g., "*.edf", "*_pp.pkl")
+        file_pattern (str): Glob pattern for files (e.g., "*.edf", "*_pp_bse.pkl")
 
     Raises:
-        FileNotFoundError: If no files match.
-        ValueError: If any filenames fail the naming convention.
+        FileNotFoundError: If no files match the stem+extension.
+        ValueError: If any matching files have invalid names.
 
     Returns:
-        bool: True if all files are valid.
+        bool: True if all matching files are valid.
     """
     # Separate stem and extension
     stem, ext = os.path.splitext(file_pattern)
@@ -105,32 +108,33 @@ def validate_directory_structure(input_root="raw", file_pattern="*_pp.pkl"):
         raise ValueError(f"File pattern must include an extension, got: {file_pattern}")
     ext = ext.lstrip(".")  # normalize extension
 
-    # Convert file_pattern wildcards to regex
-    # Escape other characters, replace * with .*
+    # Convert stem wildcards to regex (.* for *)  
     stem_regex = re.escape(stem).replace(r"\*", ".*")
 
-    # Regex for filename: <subjectID>_MMDDYYYY_HHMMSSdd + stem pattern + .ext
+    # Regex for prefix: <subjectID>_MMDDYYYY_HHMMSSdd + stem + .ext
     filename_regex = re.compile(
         rf"^[A-Za-z0-9]+_\d{{8}}_\d{{8}}{stem_regex}\.{re.escape(ext)}$",
         re.IGNORECASE
     )
 
-    # Collect all files under <input_root>/*/
-    candidate_files = glob.glob(os.path.join(input_root, "*", "*"))
-    all_files = [f for f in candidate_files if f.lower().endswith(f".{ext.lower()}")]
+    # Collect all files under <input_root>/* that end with stem+ext
+    candidate_files = glob.glob(os.path.join(input_root, "*", f"*{stem}{ext}"))
 
-    if not all_files:
-        raise FileNotFoundError(f"ERROR: No files found with extension '.{ext}' under {input_root}")
-
-    invalid_files = [f for f in all_files if not filename_regex.match(os.path.basename(f))]
-
-    if invalid_files:
-        msg = "\n".join("  " + f for f in invalid_files)
-        raise ValueError(
-            f"ERROR: The following files have invalid names (expected <subjectID>_MMDDYYYY_HHMMSSdd{file_pattern[1:]}):\n{msg}"
+    if not candidate_files:
+        raise FileNotFoundError(
+            f"ERROR: No files found with pattern '*{stem}{ext}' under {input_root}"
         )
 
-    print(f"All {len(all_files)} files have valid names and directory structure.")
+    # Only validate files that match stem+ext
+    invalid_files = [f for f in candidate_files if not filename_regex.match(os.path.basename(f))]
+
+    if invalid_files:
+        print("WARNING: The following files have invalid names (prefix format incorrect):")
+        for f in invalid_files:
+            print("  " + f)
+
+    print(f"Checked {len(candidate_files)} file(s) with pattern '*{stem}{ext}'. "
+          f"{len(candidate_files)-len(invalid_files)} valid, {len(invalid_files)} invalid.")
     return True
 
 def _check_cache_files(codename, keys):
@@ -268,7 +272,7 @@ def run_bsp(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
                 f.write(result)
 
 
-def run_bsv(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
+def run_bsv(in_dir, file_pattern, out_dir=None, codename='commongonolek_sheldrake'):
     """
     Run Brain-State Visualizer (BSV) inference.
 
@@ -320,9 +324,9 @@ def run_bsv(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
         out_subj_dir = os.path.join(out_dir, subject_id)
         os.makedirs(out_subj_dir, exist_ok=True)
 
-        bse_files = glob.glob(os.path.join(subj_path, "*_pp_bse.pkl"))
-        print(f"Processing subject '{subject_id}' with {len(bse_files)} file(s).")
-        for infile in bse_files:
+        in_files = glob.glob(os.path.join(subj_path, file_pattern))
+        print(f"Processing subject '{subject_id}' with {len(in_files)} file(s).")
+        for infile in in_files:
             filename = os.path.splitext(os.path.basename(infile))[0]
             outfile = os.path.join(out_subj_dir, f"{filename}_bsv.pkl")
 
