@@ -1,41 +1,31 @@
 # src/kenazlbm/core.py
 import os
 import torch
-from .hubconfig import _get_conda_cache, CONFIGS,  _load_models
+from .hubconfig import _get_conda_cache, CONFIGS, _load_models
 
-def prefetch_models(codename='commongonolek_sheldrake', env_prefix=None, force=False):
-    """
-    Prefetches all pretrained models and caches them in a folder inside the Conda environment.
-    
-    Args:
-        codename (str): Model configuration to prefetch.
-        env_prefix (str): Path to Conda environment. Defaults to current env.
-        force (bool): If True, redownload even if models already exist.
-    """
-    import os, torch
-    from .hubconfig import _load_models
+# ---- Global cache dir ----
+ENV_PREFIX = os.environ.get("CONDA_PREFIX")
+if ENV_PREFIX is None:
+    raise EnvironmentError("No Conda environment detected. Activate your environment first.")
+CACHE_DIR = os.path.join(ENV_PREFIX, "kenazlbm_models")
+os.makedirs(CACHE_DIR, exist_ok=True)
+# --------------------------
 
-    if env_prefix is None:
-        env_prefix = os.environ.get('CONDA_PREFIX')
-        if env_prefix is None:
-            raise EnvironmentError("No Conda environment detected. Activate your environment first.")
+def prefetch_models(codename='commongonolek_sheldrake', force=False):
+    """
+    Prefetches all pretrained models and caches them in CACHE_DIR.
+    """
+    if os.listdir(CACHE_DIR) and not force:
+        print(f"Models already exist in {CACHE_DIR}. Use --force to redownload.")
+        return CACHE_DIR
     
-    cache_dir = os.path.join(env_prefix, "kenazlbm_models")
-    os.makedirs(cache_dir, exist_ok=True)
-    
-    # Check for existing files
-    existing_files = os.listdir(cache_dir)
-    if existing_files and not force:
-        print(f"Models already exist in {cache_dir}. Use --force to redownload.")
-        return cache_dir
-    
-    print(f"Caching KenazLBM models for '{codename}' in {cache_dir} ...")
+    print(f"Caching KenazLBM models for '{codename}' in {CACHE_DIR} ...")
 
     # Override the hub cache location temporarily
-    torch.hub._get_torch_home = lambda: cache_dir  # forces torch to store checkpoints here
+    torch.hub._get_torch_home = lambda: CACHE_DIR
 
     # Load all models (BSE, Discriminator, BSP, BSV, SOM)
-    bse, disc, bsp, bsv, som, config = _load_models(
+    _load_models(
         codename=codename,
         gpu_id='cpu',
         pretrained=True,
@@ -47,19 +37,19 @@ def prefetch_models(codename='commongonolek_sheldrake', env_prefix=None, force=F
     )
 
     print("All models prefetched and cached successfully.")
-    return cache_dir
+    return CACHE_DIR
+
 
 def check_models(codename='commongonolek_sheldrake'):
     """
-    Checks which pretrained models are present in the Conda cache and prints info.
+    Checks which pretrained models are present in CACHE_DIR and prints info.
     """
     if codename not in CONFIGS:
         print(f"Codename '{codename}' not found. Available: {list(CONFIGS.keys())}")
         return
 
     config = CONFIGS[codename]
-    cache_dir = _get_conda_cache()
-    print(f"Checking cached models in: {cache_dir}\n")
+    print(f"Checking cached models in: {CACHE_DIR}\n")
 
     model_files = [
         config.get('bse_weight_file'),
@@ -71,7 +61,7 @@ def check_models(codename='commongonolek_sheldrake'):
     for f in model_files:
         if f is None:
             continue
-        path = os.path.join(cache_dir, f)
+        path = os.path.join(CACHE_DIR, f)
         if os.path.exists(path):
             size_mb = os.path.getsize(path) / (1024 * 1024)
             print(f"{f}: FOUND ({size_mb:.2f} MB)")
@@ -87,6 +77,7 @@ def check_models(codename='commongonolek_sheldrake'):
         if f is None:
             continue
         print(f"{f}: ONLINE (not cached locally)")
+
 
 def preprocess(in_dir, out_dir=None):
     """
@@ -116,12 +107,25 @@ def preprocess(in_dir, out_dir=None):
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
+        
+
+    # Check to make sure the BSE model is chached, or download it
+
+
 
     # Example preprocessing logic (replace with actual)
     print(f"Preprocessing files in {in_dir} and saving to {out_dir}")
 
 
-def run_bse(in_dir, out_dir=None):
+
+def _check_cache_files(codename, keys):
+    """Helper: check if given weight files exist in CACHE_DIR."""
+    config = CONFIGS.get(codename, {})
+    required_files = [config.get(k) for k in keys if config.get(k)]
+    return all(os.path.exists(os.path.join(CACHE_DIR, f)) for f in required_files)
+
+
+def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     """
     Run Brain-State Embedder (BSE) inference.
 
@@ -132,6 +136,7 @@ def run_bse(in_dir, out_dir=None):
         in_dir (str): Input directory containing preprocessed pickle files.
         out_dir (str, optional): Output directory to save results.
                                  If None, defaults to the input directory.
+        codename (str): Model codename to load (default: commongonolek_sheldrake).
 
     Raises:
         FileNotFoundError: If the input directory does not exist.
@@ -142,15 +147,31 @@ def run_bse(in_dir, out_dir=None):
     """
     if out_dir is None:
         out_dir = in_dir
-
     if not os.path.exists(in_dir):
         raise FileNotFoundError(f"Input directory does not exist: {in_dir}")
+    os.makedirs(out_dir, exist_ok=True)
 
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir, exist_ok=True)
+    torch.hub._get_torch_home = lambda: CACHE_DIR
+
+    if _check_cache_files(codename, ['bse_weight_file']):
+        print(f"Using cached BSE model from {CACHE_DIR}")
+    else:
+        print(f"Downloading BSE model to {CACHE_DIR} ...")
+
+    bse, _, _, _, _, _ = _load_models(
+        codename=codename,
+        gpu_id='cpu',
+        pretrained=True,
+        load_bse=True,
+        load_discriminator=False,
+        load_bsp=False,
+        load_bsv=False,
+        load_som=False
+    )
+    # TODO: run inference with `bse`
 
 
-def run_bsp(in_dir, out_dir=None):
+def run_bsp(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     """
     Run Brain-State Predictor (BSP) inference.
 
@@ -161,6 +182,7 @@ def run_bsp(in_dir, out_dir=None):
         in_dir (str): Input directory containing BSE output pickle files.
         out_dir (str, optional): Output directory to save results.
                                  If None, defaults to the input directory.
+        codename (str): Model codename to load (default: commongonolek_sheldrake).
 
     Raises:
         FileNotFoundError: If the input directory does not exist.
@@ -171,15 +193,31 @@ def run_bsp(in_dir, out_dir=None):
     """
     if out_dir is None:
         out_dir = in_dir
-
     if not os.path.exists(in_dir):
         raise FileNotFoundError(f"Input directory does not exist: {in_dir}")
+    os.makedirs(out_dir, exist_ok=True)
 
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir, exist_ok=True)
+    torch.hub._get_torch_home = lambda: CACHE_DIR
+
+    if _check_cache_files(codename, ['bsp_weight_file']):
+        print(f"Using cached BSP model from {CACHE_DIR}")
+    else:
+        print(f"Downloading BSP model to {CACHE_DIR} ...")
+
+    _, _, bsp, _, _, _ = _load_models(
+        codename=codename,
+        gpu_id='cpu',
+        pretrained=True,
+        load_bse=False,
+        load_discriminator=False,
+        load_bsp=True,
+        load_bsv=False,
+        load_som=False
+    )
+    # TODO: run inference with `bsp`
 
 
-def run_bsv(in_dir, out_dir=None):
+def run_bsv(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     """
     Run Brain-State Visualizer (BSV) inference.
 
@@ -190,6 +228,7 @@ def run_bsv(in_dir, out_dir=None):
         in_dir (str): Input directory containing BSE output pickle files.
         out_dir (str, optional): Output directory to save visualization results.
                                  If None, defaults to the input directory.
+        codename (str): Model codename to load (default: commongonolek_sheldrake).
 
     Raises:
         FileNotFoundError: If the input directory does not exist.
@@ -199,10 +238,25 @@ def run_bsv(in_dir, out_dir=None):
     """
     if out_dir is None:
         out_dir = in_dir
-
     if not os.path.exists(in_dir):
         raise FileNotFoundError(f"Input directory does not exist: {in_dir}")
+    os.makedirs(out_dir, exist_ok=True)
 
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir, exist_ok=True)
+    torch.hub._get_torch_home = lambda: CACHE_DIR
 
+    if _check_cache_files(codename, ['bsp_weight_file', 'bsv_weight_file']):
+        print(f"Using cached BSP + BSV models from {CACHE_DIR}")
+    else:
+        print(f"Downloading BSP + BSV models to {CACHE_DIR} ...")
+
+    _, _, bsp, bsv, _, _ = _load_models(
+        codename=codename,
+        gpu_id='cpu',
+        pretrained=True,
+        load_bse=False,
+        load_discriminator=False,
+        load_bsp=True,
+        load_bsv=True,
+        load_som=False
+    )
+    # TODO: run inference with `bsp` and `bsv`
