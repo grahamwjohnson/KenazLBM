@@ -143,7 +143,7 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
     if load_bse:
         bse = BSE(gpu_id=gpu_id, **config)
         if pretrained and config.get('bse_weight_file') and config.get('release_tag'):
-            url = f"https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{config['release_tag']}/{config['bse_weight_file']}"
+            url = f"https://github.com/grahamwjohnson/kenazlbm/releases/download/{config['release_tag']}/{config['bse_weight_file']}"
             try:
                 cached_path = _cached_or_download(url, config['bse_weight_file'])
                 state_dict = torch.load(cached_path, map_location='cpu')
@@ -156,7 +156,7 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
     if load_discriminator:
         disc = Discriminator(gpu_id=gpu_id, **config)
         if pretrained and config.get('disc_weight_file') and config.get('release_tag'):
-            url = f"https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{config['release_tag']}/{config['disc_weight_file']}"
+            url = f"https://github.com/grahamwjohnson/kenazlbm/releases/download/{config['release_tag']}/{config['disc_weight_file']}"
             try:
                 cached_path = _cached_or_download(url, config['disc_weight_file'])
                 state_dict = torch.load(cached_path, map_location='cpu')
@@ -169,7 +169,7 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
     if load_bsp:
         bsp = BSP(gpu_id=gpu_id, **config)
         if pretrained and config.get('bsp_weight_file') and config.get('release_tag'):
-            url = f"https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{config['release_tag']}/{config['bsp_weight_file']}"
+            url = f"https://github.com/grahamwjohnson/kenazlbm/releases/download/{config['release_tag']}/{config['bsp_weight_file']}"
             try:
                 cached_path = _cached_or_download(url, config['bsp_weight_file'])
                 state_dict = torch.load(cached_path, map_location='cpu')
@@ -182,7 +182,7 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
     if load_bsv:
         bsv = BSV(gpu_id=gpu_id, **config)
         if pretrained and config.get('bsv_weight_file') and config.get('release_tag'):
-            url = f"https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{config['release_tag']}/{config['bsv_weight_file']}"
+            url = f"https://github.com/grahamwjohnson/kenazlbm/releases/download/{config['release_tag']}/{config['bsv_weight_file']}"
             try:
                 cached_path = _cached_or_download(url, config['bsv_weight_file'])
                 state_dict = torch.load(cached_path, map_location='cpu')
@@ -194,14 +194,14 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
     som = None
     if load_som:
         try:
-            url = f"https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{config['release_tag']}/{config['som_file']}"
+            url = f"https://github.com/grahamwjohnson/kenazlbm/releases/download/{config['release_tag']}/{config['som_file']}"
             cached_path = _cached_or_download(url, config['som_file'])
             checkpoint = torch.load(cached_path, map_location='cpu')
             som = ToroidalSOM_2(**checkpoint)  # adjust to your init
             som.load_state_dict(checkpoint['model_state_dict'])
 
             # Axis file
-            axis_url = f"https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{config['release_tag']}/{config['som_axis_file']}"
+            axis_url = f"https://github.com/grahamwjohnson/kenazlbm/releases/download/{config['release_tag']}/{config['som_axis_file']}"
             axis_cache_path = os.path.join(_get_conda_cache(), config['som_axis_file'])
             if not os.path.exists(axis_cache_path):
                 r = requests.get(axis_url)
