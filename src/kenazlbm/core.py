@@ -65,9 +65,7 @@ def check_models(codename='commongonolek_sheldrake'):
         config.get('bse_weight_file'),
         config.get('disc_weight_file'),
         config.get('bsp_weight_file'),
-        config.get('bsv_weight_file'),
-        config.get('som_file'),
-        config.get('som_axis_file')
+        config.get('bsv_weight_file')
     ]
 
     for f in model_files:
@@ -79,6 +77,16 @@ def check_models(codename='commongonolek_sheldrake'):
             print(f"{f}: FOUND ({size_mb:.2f} MB)")
         else:
             print(f"{f}: MISSING")
+
+    online_files = [
+        config.get('som_file'),
+        config.get('som_axis_file')
+    ]
+
+    for f in online_files:
+        if f is None:
+            continue
+        print(f"{f}: ONLINE (not cached locally)")
 
 def preprocess(raw_dir):
     """
@@ -96,6 +104,6 @@ def run_bsp(postbse_dir):
     print("Running BSP on the following directory:", postbse_dir)
     print("Need to code")
 
-def run_bsv(postbse_dir):
-    print("Running BSV on the following directory:", postbse_dir)
+def run_bsv(postbsp_dir):
+    print("Running BSV on the following directory:", postbsp_dir)
     print("Need to code")
