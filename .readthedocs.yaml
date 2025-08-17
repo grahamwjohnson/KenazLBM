@@ -8,9 +8,5 @@ build:
 sphinx:
   configuration: docs/conf.py
 
-python:
-  install:
-    - environment: environment.yml
-  post-install:
-    - python -m kenazlbm.prefetch_models
-
+conda:
+  environment: environment.yml
