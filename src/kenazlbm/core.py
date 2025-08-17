@@ -82,18 +82,15 @@ import os
 import glob
 import re
 
-def validate_directory_structure(input_root="raw", file_pattern="*.edf"):
+def validate_directory_structure(input_root="raw", file_pattern="*_pp.pkl"):
     """
-    Validates that files exist under: <input_root>/*/<file_pattern>
-    and that filenames follow the format:
-        <subjectID>_MMDDYYYY_HHMMSSdd.<ext>
-    where <subjectID> is alphanumeric and <ext> is taken from file_pattern.
-
-    Works case-insensitively on the extension (e.g., .edf or .EDF).
+    Validates files exist under <input_root>/*/<file_pattern> and that filenames
+    start with <subjectID>_MMDDYYYY_HHMMSSdd, with arbitrary suffix according
+    to file_pattern.
 
     Args:
         input_root (str): Root directory (default "raw")
-        file_pattern (str): Glob pattern for files (e.g. "*.edf", "*_pp.pkl")
+        file_pattern (str): Glob pattern for files (e.g., "*.edf", "*_pp.pkl")
 
     Raises:
         FileNotFoundError: If no files match.
@@ -102,30 +99,35 @@ def validate_directory_structure(input_root="raw", file_pattern="*.edf"):
     Returns:
         bool: True if all files are valid.
     """
-    # Extract extension from pattern
-    _, ext = os.path.splitext(file_pattern)
+    # Separate stem and extension
+    stem, ext = os.path.splitext(file_pattern)
     if not ext:
         raise ValueError(f"File pattern must include an extension, got: {file_pattern}")
-    ext = ext.lstrip("*.")  # e.g., "*.edf" -> "edf"
+    ext = ext.lstrip(".")  # normalize extension
 
-    # Collect all files under <input_root>/*/ 
+    # Convert file_pattern wildcards to regex
+    # Escape other characters, replace * with .*
+    stem_regex = re.escape(stem).replace(r"\*", ".*")
+
+    # Regex for filename: <subjectID>_MMDDYYYY_HHMMSSdd + stem pattern + .ext
+    filename_regex = re.compile(
+        rf"^[A-Za-z0-9]+_\d{{8}}_\d{{8}}{stem_regex}\.{re.escape(ext)}$",
+        re.IGNORECASE
+    )
+
+    # Collect all files under <input_root>/*/
     candidate_files = glob.glob(os.path.join(input_root, "*", "*"))
     all_files = [f for f in candidate_files if f.lower().endswith(f".{ext.lower()}")]
 
     if not all_files:
         raise FileNotFoundError(f"ERROR: No files found with extension '.{ext}' under {input_root}")
 
-    # Regex for filename: <subjectID>_MMDDYYYY_HHMMSSdd.<ext> (case-insensitive)
-    filename_regex = re.compile(
-        rf"^[A-Za-z0-9]+_\d{{8}}_\d{{8}}\.{re.escape(ext)}$", re.IGNORECASE
-    )
-
     invalid_files = [f for f in all_files if not filename_regex.match(os.path.basename(f))]
 
     if invalid_files:
         msg = "\n".join("  " + f for f in invalid_files)
         raise ValueError(
-            f"ERROR: The following files have invalid names (expected <subjectID>_MMDDYYYY_HHMMSSdd.{ext}):\n{msg}"
+            f"ERROR: The following files have invalid names (expected <subjectID>_MMDDYYYY_HHMMSSdd{file_pattern[1:]}):\n{msg}"
         )
 
     print(f"All {len(all_files)} files have valid names and directory structure.")
