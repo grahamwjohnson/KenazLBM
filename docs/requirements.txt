@@ -1,0 +1,9 @@
+sphinx
+sphinx-rtd-theme
+myst-parser
+torchinfo
+torch
+pip
+numpy
+scipy
+scikit-learn
