@@ -19,8 +19,8 @@ def main():
     parser_bsp.add_argument("--input", type=str, required=True, help="Input directory: <dir>/<subject_id>/pp_bse_*.pkl")
     parser_bsp.add_argument("--output", type=str, default=None, help="Optional output directory (default: same as input)")
 
-    parser_bsv = subparsers.add_parser("run_bsv", help="Run Brain-State Visualizer inference: <dir>/<subject_id>/pp_bse_bsp_*.pkl")
-    parser_bsv.add_argument("--input", type=str, required=True, help="Input directory: <dir>/<subject_id>/pp_bse_bsp_*.pkl")
+    parser_bsv = subparsers.add_parser("run_bsv", help="Run Brain-State Visualizer inference: <dir>/<subject_id>/pp_bse_*.pkl")
+    parser_bsv.add_argument("--input", type=str, required=True, help="Input directory: <dir>/<subject_id>/pp_bse_*.pkl")
     parser_bsv.add_argument("--output", type=str, default=None, help="Optional output directory (default: same as input)")
 
     args = parser.parse_args()
