@@ -1,10 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
 from torchinfo import summary
-import torch.distributions as dist
-import yaml
 
 # Local imports
 from .Transformer import ModelArgs, Transformer, RMSNorm
