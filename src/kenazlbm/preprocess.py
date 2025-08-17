@@ -29,7 +29,7 @@ def preprocess_directory(in_dir="raw", out_dir=None):
         # Extract subject folder
         subject_dir = os.path.basename(os.path.dirname(infile))
         filename, ext = os.path.splitext(os.path.basename(infile))
-        outfile = os.path.join(out_dir, subject_dir, f"{filename}_pp.EDF")
+        outfile = os.path.join(out_dir, subject_dir, f"{filename}_pp.pkl")
         
         print(f"Preprocessing input file: {infile}")
         

@@ -78,12 +78,18 @@ def check_models(codename='commongonolek_sheldrake'):
             continue
         print(f"{f}: ONLINE (not cached locally)")
 
+import os
+import glob
+import re
+
 def validate_directory_structure(input_root="raw", file_pattern="*.edf"):
     """
     Validates that files exist under: <input_root>/*/<file_pattern>
     and that filenames follow the format:
         <subjectID>_MMDDYYYY_HHMMSSdd.<ext>
     where <subjectID> is alphanumeric and <ext> is taken from file_pattern.
+
+    Works case-insensitively on the extension (e.g., .edf or .EDF).
 
     Args:
         input_root (str): Root directory (default "raw")
@@ -96,22 +102,22 @@ def validate_directory_structure(input_root="raw", file_pattern="*.edf"):
     Returns:
         bool: True if all files are valid.
     """
-    # Build the glob pattern
-    pattern = os.path.join(input_root, "*", file_pattern)
-    all_files = glob.glob(pattern)
-
-    if not all_files:
-        raise FileNotFoundError(f"ERROR: No files found with pattern {pattern}")
-
-    # Extract extension (everything after last dot in file_pattern)
+    # Extract extension from pattern
     _, ext = os.path.splitext(file_pattern)
     if not ext:
         raise ValueError(f"File pattern must include an extension, got: {file_pattern}")
-    ext_rx = re.escape(ext.lstrip("*."))  # normalize "*.edf" -> "edf"
+    ext = ext.lstrip("*.")  # e.g., "*.edf" -> "edf"
 
-    # Build regex: subjectID (alnum) + '_' + MMDDYYYY + '_' + HHMMSSdd + .ext
+    # Collect all files under <input_root>/*/ 
+    candidate_files = glob.glob(os.path.join(input_root, "*", "*"))
+    all_files = [f for f in candidate_files if f.lower().endswith(f".{ext.lower()}")]
+
+    if not all_files:
+        raise FileNotFoundError(f"ERROR: No files found with extension '.{ext}' under {input_root}")
+
+    # Regex for filename: <subjectID>_MMDDYYYY_HHMMSSdd.<ext> (case-insensitive)
     filename_regex = re.compile(
-        rf"^[A-Za-z0-9]+_\d{{8}}_\d{{8}}\.{ext_rx}$", re.IGNORECASE
+        rf"^[A-Za-z0-9]+_\d{{8}}_\d{{8}}\.{re.escape(ext)}$", re.IGNORECASE
     )
 
     invalid_files = [f for f in all_files if not filename_regex.match(os.path.basename(f))]
@@ -119,47 +125,11 @@ def validate_directory_structure(input_root="raw", file_pattern="*.edf"):
     if invalid_files:
         msg = "\n".join("  " + f for f in invalid_files)
         raise ValueError(
-            "ERROR: The following files have invalid names (expected "
-            f"<subjectID>_MMDDYYYY_HHMMSSdd.{ext_rx}):\n{msg}"
+            f"ERROR: The following files have invalid names (expected <subjectID>_MMDDYYYY_HHMMSSdd.{ext}):\n{msg}"
         )
 
     print(f"All {len(all_files)} files have valid names and directory structure.")
     return True
-
-
-def preprocess(in_dir, out_dir=None):
-    """
-    Preprocess input files and save the results.
-
-    Expects files in the format:
-        <dir>/<subject_id>/*.[edf|EDF]
-
-    Args:
-        in_dir (str): Input directory containing raw EDF files.
-        out_dir (str, optional): Output directory to save preprocessed files.
-                                 If None, defaults to the input directory.
-
-    Raises:
-        FileNotFoundError: If the input directory does not exist.
-
-    Notes:
-        - Preprocessing should produce files like:
-          <dir>/<subject_id>/*_pp.pkl
-        - Replace placeholder logic with actual preprocessing implementation.
-    """
-    if out_dir is None:
-        out_dir = in_dir
-
-    if not os.path.exists(in_dir):
-        raise FileNotFoundError(f"Input directory does not exist: {in_dir}")
-
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir, exist_ok=True)
-        
-
-    # Example preprocessing logic (replace with actual)
-    print(f"Preprocessing files in {in_dir} and saving to {out_dir}")
-
 
 def _check_cache_files(codename, keys):
     """Helper: check if given weight files exist in CACHE_DIR."""

@@ -18,16 +18,16 @@ def main():
     parser_pre.add_argument("--input", type=str, required=True, help="Input directory: <dir>/<subject_id>/*.[edf|EDF]")
     parser_pre.add_argument("--output", type=str, default=None, help="Optional output directory (default: same as input)")
 
-    parser_bse = subparsers.add_parser("run_bse", help="Run Brain-State Embedder inference: <dir>/<subject_id>/pp_*.pkl")
-    parser_bse.add_argument("--input", type=str, required=True, help="Input directory: <dir>/<subject_id>/pp_*.pkl")
+    parser_bse = subparsers.add_parser("run_bse", help="Run Brain-State Embedder inference: <dir>/<subject_id>/*_pp.pkl")
+    parser_bse.add_argument("--input", type=str, required=True, help="Input directory: <dir>/<subject_id>/*_pp.pkl")
     parser_bse.add_argument("--output", type=str, default=None, help="Optional output directory (default: same as input)")
 
-    parser_bsp = subparsers.add_parser("run_bsp", help="Run Brain-State Predictor inference: <dir>/<subject_id>/pp_bse_*.pkl")
-    parser_bsp.add_argument("--input", type=str, required=True, help="Input directory: <dir>/<subject_id>/pp_bse_*.pkl")
+    parser_bsp = subparsers.add_parser("run_bsp", help="Run Brain-State Predictor inference: <dir>/<subject_id>/*_pp_bse.pkl")
+    parser_bsp.add_argument("--input", type=str, required=True, help="Input directory: <dir>/<subject_id>/*_pp_bse.pkl")
     parser_bsp.add_argument("--output", type=str, default=None, help="Optional output directory (default: same as input)")
 
-    parser_bsv = subparsers.add_parser("run_bsv", help="Run Brain-State Visualizer inference: <dir>/<subject_id>/pp_bse_*.pkl")
-    parser_bsv.add_argument("--input", type=str, required=True, help="Input directory: <dir>/<subject_id>/pp_bse_*.pkl")
+    parser_bsv = subparsers.add_parser("run_bsv", help="Run Brain-State Visualizer inference: <dir>/<subject_id>/*_pp_bse.pkl")
+    parser_bsv.add_argument("--input", type=str, required=True, help="Input directory: <dir>/<subject_id>/*_pp_bse.pkl")
     parser_bsv.add_argument("--output", type=str, default=None, help="Optional output directory (default: same as input)")
 
     args = parser.parse_args()
