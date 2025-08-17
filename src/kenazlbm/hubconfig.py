@@ -197,7 +197,7 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
         try:
             weight_file = config['som_file']
             release_tag = config['release_tag']
-            checkpoint_url = f'https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{release_tag}/{weight_file}'
+            checkpoint_url = f'https://github.com/grahamwjohnson/kenazlbm/releases/download/{release_tag}/{weight_file}'
             checkpoint = torch.hub.load_state_dict_from_url(checkpoint_url, progress=True, map_location='cpu', weights_only=False)
 
             # Retrieve hyperparameters
@@ -233,7 +233,7 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
             # Load the som axis for plotting
             axis_file = config['som_axis_file']
             release_tag = config['release_tag']
-            axis_url = f'https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{release_tag}/{axis_file}'
+            axis_url = f'https://github.com/grahamwjohnson/kenazlbm/releases/download/{release_tag}/{axis_file}'
 
             response = requests.get(axis_url)
             response.raise_for_status()  # Ensure download was successful
