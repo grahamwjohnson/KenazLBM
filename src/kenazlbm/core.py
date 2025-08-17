@@ -7,10 +7,13 @@ def preprocess(raw_dir):
     # Add your preprocessing code here
 
 def run_bse(preprocessed_dir):
+    print("Running BSE on the following directory:", preprocessed_dir)
     print("Need to code")
 
 def run_bsp(postbse_dir):
+    print("Running BSP on the following directory:", postbse_dir)
     print("Need to code")
 
 def run_bsv(postbsp_dir):
+    print("Running BSV on the following directory:", postbsp_dir)
     print("Need to code")
