@@ -1,9 +1,7 @@
 import torch
+import pickle
 import os
 import requests
-import pandas as pd
-import pickle
-import io
 from kenazlbm.BSE import BSE, Discriminator
 from kenazlbm.BSP import BSP, BSV
 from kenazlbm.ToroidalSOM_2 import ToroidalSOM_2
@@ -239,14 +237,8 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
             response = requests.get(axis_url)
             response.raise_for_status()  # Ensure download was successful
 
-            class PandasUnpickler(pickle.Unpickler):
-                def find_class(self, module, name):
-                    # Allow pandas objects like Grouper to be resolved
-                    if module == "pandas.core.resample" and name == "Grouper":
-                        return pd.Grouper
-                    return super().find_class(module, name)
-
-            som.axis_data = PandasUnpickler(io.BytesIO(response.content)).load()
+            # Load directly from bytes in memory
+            som.axis_data = pickle.loads(response.content, fix_imports=True)
 
             print(f"Toroidal SOM pre-made axis loaded from {checkpoint_url}")
 

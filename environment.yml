@@ -10,7 +10,7 @@ dependencies:
   - scipy
   - scikit-learn
   - matplotlib
-  - pandas
+  - pandas=2.0.3
   - seaborn
   - joblib
   - pip
