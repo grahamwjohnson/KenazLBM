@@ -157,8 +157,8 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
         FileNotFoundError: If the input directory does not exist.
 
     Notes:
-        - Produces files like:
-          <dir>/<subject_id>/*_pp_bse.pkl
+        - Produces *_bse outputs like:
+          <dir>/<subject_id>/*_bse.pkl
     """
     if out_dir is None:
         out_dir = in_dir
@@ -183,7 +183,25 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
         load_bsv=False,
         load_som=False
     )
-    # TODO: run inference with `bse`
+
+    subject_dirs = [d for d in glob.glob(os.path.join(in_dir, "*")) if os.path.isdir(d)]
+    print(f"Found {len(subject_dirs)} subject(s): {[os.path.basename(d) for d in subject_dirs]}")
+
+    for subj_path in subject_dirs:
+        subject_id = os.path.basename(subj_path)
+        out_subj_dir = os.path.join(out_dir, subject_id)
+        os.makedirs(out_subj_dir, exist_ok=True)
+
+        pp_files = glob.glob(os.path.join(subj_path, "*_pp.pkl"))
+        print(f"Processing subject '{subject_id}' with {len(pp_files)} file(s).")
+        for infile in pp_files:
+            filename = os.path.splitext(os.path.basename(infile))[0]
+            outfile = os.path.join(out_subj_dir, f"{filename}_bse.pkl")
+
+            print(f"Running BSE on {infile} -> {outfile}")
+            result = f"BSE output of {infile}"  # dummy inference
+            with open(outfile, 'w') as f:
+                f.write(result)
 
 
 def run_bsp(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
@@ -203,8 +221,8 @@ def run_bsp(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
         FileNotFoundError: If the input directory does not exist.
 
     Notes:
-        - Produces files like:
-          <dir>/<subject_id>/*_pp_bsp.pkl
+        - Produces *_bsp outputs like:
+          <dir>/<subject_id>/*_bsp.pkl
     """
     if out_dir is None:
         out_dir = in_dir
@@ -229,7 +247,25 @@ def run_bsp(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
         load_bsv=False,
         load_som=False
     )
-    # TODO: run inference with `bsp`
+
+    subject_dirs = [d for d in glob.glob(os.path.join(in_dir, "*")) if os.path.isdir(d)]
+    print(f"Found {len(subject_dirs)} subject(s): {[os.path.basename(d) for d in subject_dirs]}")
+
+    for subj_path in subject_dirs:
+        subject_id = os.path.basename(subj_path)
+        out_subj_dir = os.path.join(out_dir, subject_id)
+        os.makedirs(out_subj_dir, exist_ok=True)
+
+        bse_files = glob.glob(os.path.join(subj_path, "*_pp_bse.pkl"))
+        print(f"Processing subject '{subject_id}' with {len(bse_files)} file(s).")
+        for infile in bse_files:
+            filename = os.path.splitext(os.path.basename(infile))[0]
+            outfile = os.path.join(out_subj_dir, f"{filename}_bsp.pkl")
+
+            print(f"Running BSP on {infile} -> {outfile}")
+            result = f"BSP output of {infile}"  # dummy inference
+            with open(outfile, 'w') as f:
+                f.write(result)
 
 
 def run_bsv(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
@@ -249,7 +285,8 @@ def run_bsv(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
         FileNotFoundError: If the input directory does not exist.
 
     Notes:
-        - Produces visualization outputs (format TBD, e.g. images or reports).
+        - Produces *_bsv outputs like:
+          <dir>/<subject_id>/*_bsv.pkl
     """
     if out_dir is None:
         out_dir = in_dir
@@ -274,4 +311,22 @@ def run_bsv(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
         load_bsv=True,
         load_som=False
     )
-    # TODO: run inference with `bsp` and `bsv`
+
+    subject_dirs = [d for d in glob.glob(os.path.join(in_dir, "*")) if os.path.isdir(d)]
+    print(f"Found {len(subject_dirs)} subject(s): {[os.path.basename(d) for d in subject_dirs]}")
+
+    for subj_path in subject_dirs:
+        subject_id = os.path.basename(subj_path)
+        out_subj_dir = os.path.join(out_dir, subject_id)
+        os.makedirs(out_subj_dir, exist_ok=True)
+
+        bse_files = glob.glob(os.path.join(subj_path, "*_pp_bse.pkl"))
+        print(f"Processing subject '{subject_id}' with {len(bse_files)} file(s).")
+        for infile in bse_files:
+            filename = os.path.splitext(os.path.basename(infile))[0]
+            outfile = os.path.join(out_subj_dir, f"{filename}_bsv.pkl")
+
+            print(f"Running BSV on {infile} -> {outfile}")
+            result = f"BSV output of {infile}"  # dummy inference
+            with open(outfile, 'w') as f:
+                f.write(result)
