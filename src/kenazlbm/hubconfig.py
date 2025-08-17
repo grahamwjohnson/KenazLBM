@@ -1,6 +1,5 @@
 import torch
-import joblib
-import requests
+import pickle
 import os
 import numpy as np
 from kenazlbm.BSE import BSE, Discriminator
@@ -198,28 +197,24 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
             url = f"https://github.com/grahamwjohnson/kenazlbm/releases/download/{config['release_tag']}/{config['som_file']}"
             cached_path = _cached_or_download(url, config['som_file'])
 
-            # allow numpy scalar during load
+            # Use safe_globals for numpy scalar and weights_only=False for full checkpoint
             safe_globals = [np._core.multiarray.scalar]
             with torch.serialization.safe_globals(safe_globals):
-                checkpoint = torch.load(cached_path, map_location='cpu')
+                checkpoint = torch.load(cached_path, map_location='cpu', weights_only=False)
 
-            som = ToroidalSOM_2(**checkpoint)  # adjust to your init
+            som = ToroidalSOM_2(**checkpoint)  # adjust as needed
             som.load_state_dict(checkpoint['model_state_dict'])
+
         except Exception as e:
             print(f"Error loading SOM weights: {e}")
 
+        # Loading the axis pickled file
         try:
-            # Axis file
             axis_url = f"https://github.com/grahamwjohnson/kenazlbm/releases/download/{config['release_tag']}/{config['som_axis_file']}"
-            axis_cache_path = os.path.join(_get_conda_cache(), config['som_axis_file'])
-            if not os.path.exists(axis_cache_path):
-                r = requests.get(axis_url)
-                r.raise_for_status()
-                with open(axis_cache_path, "wb") as f:
-                    f.write(r.content)
-
-            som.axis_data = joblib.load(axis_cache_path)
-
+            axis_cache_path = _cached_or_download(axis_url, config['som_axis_file'])
+            with open(axis_cache_path, "rb") as f:
+                # Use fix_imports=True in case of older pickle
+                som.axis_data = pickle.load(f, fix_imports=True)
         except Exception as e:
             print(f"Error loading SOM plot info: {e}")
 
