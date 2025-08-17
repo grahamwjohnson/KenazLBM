@@ -87,7 +87,7 @@ def validate_directory_structure(input_root="raw", file_pattern="*.edf"):
 
     Args:
         input_root (str): Root directory (default "raw")
-        file_pattern (str): Glob pattern for files (e.g. "*.edf", "pp_*.pkl")
+        file_pattern (str): Glob pattern for files (e.g. "*.edf", "*_pp.pkl")
 
     Raises:
         FileNotFoundError: If no files match.
@@ -144,7 +144,7 @@ def preprocess(in_dir, out_dir=None):
 
     Notes:
         - Preprocessing should produce files like:
-          <dir>/<subject_id>/pp_*.pkl
+          <dir>/<subject_id>/*_pp.pkl
         - Replace placeholder logic with actual preprocessing implementation.
     """
     if out_dir is None:
@@ -173,7 +173,7 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     Run Brain-State Embedder (BSE) inference.
 
     Expects files in the format:
-        <dir>/<subject_id>/pp_*.pkl
+        <dir>/<subject_id>/*_pp.pkl
 
     Args:
         in_dir (str): Input directory containing preprocessed pickle files.
@@ -186,7 +186,7 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
 
     Notes:
         - Produces files like:
-          <dir>/<subject_id>/pp_bse_*.pkl
+          <dir>/<subject_id>/*_pp_bse.pkl
     """
     if out_dir is None:
         out_dir = in_dir
@@ -219,7 +219,7 @@ def run_bsp(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     Run Brain-State Predictor (BSP) inference.
 
     Expects files in the format:
-        <dir>/<subject_id>/pp_bse_*.pkl
+        <dir>/<subject_id>/*_pp_bse.pkl
 
     Args:
         in_dir (str): Input directory containing BSE output pickle files.
@@ -232,7 +232,7 @@ def run_bsp(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
 
     Notes:
         - Produces files like:
-          <dir>/<subject_id>/pp_bsp_*.pkl
+          <dir>/<subject_id>/*_pp_bsp.pkl
     """
     if out_dir is None:
         out_dir = in_dir
@@ -265,7 +265,7 @@ def run_bsv(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     Run Brain-State Visualizer (BSV) inference.
 
     Expects files in the format:
-        <dir>/<subject_id>/pp_bse_*.pkl
+        <dir>/<subject_id>/*_pp_bse.pkl
 
     Args:
         in_dir (str): Input directory containing BSE output pickle files.

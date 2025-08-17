@@ -34,9 +34,9 @@ def main():
     if args.command == "prefetch_models": prefetch_models(force=args.force)
     elif args.command == "check_models": check_models()
     elif args.command == "preprocess": validate_directory_structure(args.input, file_pattern="*.edf"); preprocess_directory(args.input, args.output)
-    elif args.command == "run_bse": validate_directory_structure(args.input, file_pattern="pp_*.pkl"); run_bse(args.input, args.output)
-    elif args.command == "run_bsp": validate_directory_structure(args.input, file_pattern="pp_bse_*.pkl"); run_bsp(args.input, args.output)
-    elif args.command == "run_bsv": validate_directory_structure(args.input, file_pattern="pp_bse_*.pkl"); run_bsv(args.input, args.output)
+    elif args.command == "run_bse": validate_directory_structure(args.input, file_pattern="*_pp.pkl"); run_bse(args.input, args.output)
+    elif args.command == "run_bsp": validate_directory_structure(args.input, file_pattern="*_pp_bse.pkl"); run_bsp(args.input, args.output)
+    elif args.command == "run_bsv": validate_directory_structure(args.input, file_pattern="*_pp_bse.pkl"); run_bsv(args.input, args.output)
     else: parser.print_help()
 
 if __name__ == "__main__": main()
