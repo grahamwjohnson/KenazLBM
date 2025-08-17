@@ -12,6 +12,7 @@ dependencies:
   - matplotlib
   - pandas
   - seaborn
+  - joblib
   - pip
   - pip:
       - git+https://github.com/grahamwjohnson/KenazLBM.git#egg=kenazlbm

@@ -6,3 +6,4 @@ pip
 numpy
 scipy
 scikit-learn
+joblib
