@@ -3,14 +3,18 @@ import os
 import torch
 from .hubconfig import _get_conda_cache, CONFIGS,  _load_models
 
-def prefetch_models(codename='commongonolek_sheldrake', env_prefix=None):
+def prefetch_models(codename='commongonolek_sheldrake', env_prefix=None, force=False):
     """
     Prefetches all pretrained models and caches them in a folder inside the Conda environment.
     
     Args:
         codename (str): Model configuration to prefetch.
         env_prefix (str): Path to Conda environment. Defaults to current env.
+        force (bool): If True, redownload even if models already exist.
     """
+    import os, torch
+    from .hubconfig import _load_models
+
     if env_prefix is None:
         env_prefix = os.environ.get('CONDA_PREFIX')
         if env_prefix is None:
@@ -19,19 +23,29 @@ def prefetch_models(codename='commongonolek_sheldrake', env_prefix=None):
     cache_dir = os.path.join(env_prefix, "kenazlbm_models")
     os.makedirs(cache_dir, exist_ok=True)
     
+    # Check for existing files
+    existing_files = os.listdir(cache_dir)
+    if existing_files and not force:
+        print(f"Models already exist in {cache_dir}. Use --force to redownload.")
+        return cache_dir
+    
     print(f"Caching KenazLBM models for '{codename}' in {cache_dir} ...")
 
     # Override the hub cache location temporarily
     torch.hub._get_torch_home = lambda: cache_dir  # forces torch to store checkpoints here
 
     # Load all models (BSE, Discriminator, BSP, BSV, SOM)
-    bse, disc, bsp, bsv, som, config = _load_models(codename=codename, gpu_id='cpu',
-                                                    pretrained=True,
-                                                    load_bse=True,
-                                                    load_discriminator=True,
-                                                    load_bsp=True,
-                                                    load_bsv=True,
-                                                    load_som=True)
+    bse, disc, bsp, bsv, som, config = _load_models(
+        codename=codename,
+        gpu_id='cpu',
+        pretrained=True,
+        load_bse=True,
+        load_discriminator=True,
+        load_bsp=True,
+        load_bsv=True,
+        load_som=True
+    )
+
     print("All models prefetched and cached successfully.")
     return cache_dir
 
