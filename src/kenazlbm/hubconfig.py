@@ -1,8 +1,7 @@
 import torch
-import pickle
 import os
 import requests
-import numpy as np
+import pandas as pd
 from kenazlbm.BSE import BSE, Discriminator
 from kenazlbm.BSP import BSP, BSV
 from kenazlbm.ToroidalSOM_2 import ToroidalSOM_2
@@ -239,7 +238,8 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
             response.raise_for_status()  # Ensure download was successful
 
             # Load directly from bytes in memory
-            som.axis_data = pickle.loads(response.content, fix_imports=True)
+            som.axis_data = pd.read_pickle(response.content)
+            # som.axis_data = pickle.loads(response.content, fix_imports=True)
 
             print(f"Toroidal SOM pre-made axis loaded from {checkpoint_url}")
 
