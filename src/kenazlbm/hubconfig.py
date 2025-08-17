@@ -2,6 +2,7 @@ import torch
 import os
 import requests
 import pandas as pd
+import io
 from kenazlbm.BSE import BSE, Discriminator
 from kenazlbm.BSP import BSP, BSV
 from kenazlbm.ToroidalSOM_2 import ToroidalSOM_2
@@ -237,9 +238,8 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
             response = requests.get(axis_url)
             response.raise_for_status()  # Ensure download was successful
 
-            # Load directly from bytes in memory
-            som.axis_data = pd.read_pickle(response.content)
-            # som.axis_data = pickle.loads(response.content, fix_imports=True)
+            # Wrap bytes in a file-like object
+            som.axis_data = pd.read_pickle(io.BytesIO(response.content))
 
             print(f"Toroidal SOM pre-made axis loaded from {checkpoint_url}")
 
