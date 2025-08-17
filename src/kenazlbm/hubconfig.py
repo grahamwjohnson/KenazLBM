@@ -1,7 +1,8 @@
 import torch
-import pickle
+import joblib
 import requests
 import os
+import numpy as np
 from kenazlbm.BSE import BSE, Discriminator
 from kenazlbm.BSP import BSP, BSV
 from kenazlbm.ToroidalSOM_2 import ToroidalSOM_2
@@ -196,7 +197,12 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
         try:
             url = f"https://github.com/grahamwjohnson/kenazlbm/releases/download/{config['release_tag']}/{config['som_file']}"
             cached_path = _cached_or_download(url, config['som_file'])
-            checkpoint = torch.load(cached_path, map_location='cpu')
+
+            # allow numpy scalar during load
+            safe_globals = [np._core.multiarray.scalar]
+            with torch.serialization.safe_globals(safe_globals):
+                checkpoint = torch.load(cached_path, map_location='cpu')
+
             som = ToroidalSOM_2(**checkpoint)  # adjust to your init
             som.load_state_dict(checkpoint['model_state_dict'])
         except Exception as e:
@@ -211,8 +217,9 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
                 r.raise_for_status()
                 with open(axis_cache_path, "wb") as f:
                     f.write(r.content)
-            with open(axis_cache_path, "rb") as f:
-                som.axis_data = pickle.load(f)
+
+            som.axis_data = joblib.load(axis_cache_path)
+
         except Exception as e:
             print(f"Error loading SOM plot info: {e}")
 
