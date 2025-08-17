@@ -78,47 +78,51 @@ def check_models(codename='commongonolek_sheldrake'):
             continue
         print(f"{f}: ONLINE (not cached locally)")
 
-def validate_directory_structure(input_root="raw", file_pattern="*.edf"): 
+def validate_directory_structure(input_root="raw", file_pattern="*.edf"):
     """
-    Validates that the directory structure is raw/*/<file_pattern>
-    and that filenames follow the expected format:
-    <subjectID>_MMDDYYYY_HHMMSSdd.<ext>
-    where <subjectID> is any alphanumeric string.
-    
+    Validates that files exist under: <input_root>/*/<file_pattern>
+    and that filenames follow the format:
+        <subjectID>_MMDDYYYY_HHMMSSdd.<ext>
+    where <subjectID> is alphanumeric and <ext> is taken from file_pattern.
+
     Args:
         input_root (str): Root directory (default "raw")
-        file_pattern (str): Glob pattern for files (default "*.edf")
+        file_pattern (str): Glob pattern for files (e.g. "*.edf", "pp_*.pkl")
+
+    Raises:
+        FileNotFoundError: If no files match.
+        ValueError: If any filenames fail the naming convention.
+
+    Returns:
+        bool: True if all files are valid.
     """
+    # Build the glob pattern
     pattern = os.path.join(input_root, "*", file_pattern)
     all_files = glob.glob(pattern)
 
-    # Regex for filenames: <subjectID>_<MMDDYYYY>_<HHMMSSdd>.<ext>
-    #   - subjectID = letters/numbers
-    #   - MMDDYYYY = 8 digits
-    #   - HHMMSS = 6 digits
-    #   - dd = 2 digits (deciseconds)
-    #   - extension: whatever is in file_pattern, handled case-insensitive
-    ext = os.path.splitext(file_pattern)[-1].lstrip("*.")
+    if not all_files:
+        raise FileNotFoundError(f"ERROR: No files found with pattern {pattern}")
+
+    # Extract extension (everything after last dot in file_pattern)
+    _, ext = os.path.splitext(file_pattern)
+    if not ext:
+        raise ValueError(f"File pattern must include an extension, got: {file_pattern}")
+    ext_rx = re.escape(ext.lstrip("*."))  # normalize "*.edf" -> "edf"
+
+    # Build regex: subjectID (alnum) + '_' + MMDDYYYY + '_' + HHMMSSdd + .ext
     filename_regex = re.compile(
-        rf"^[A-Za-z0-9]+_\d{{8}}_\d{{8}}\d{{2}}\.{ext}$", re.IGNORECASE
+        rf"^[A-Za-z0-9]+_\d{{8}}_\d{{8}}\.{ext_rx}$", re.IGNORECASE
     )
 
-    invalid_files = []
-    
-    if not all_files:
-        raise Exception(f"ERROR: No files found with pattern {pattern}")
+    invalid_files = [f for f in all_files if not filename_regex.match(os.path.basename(f))]
 
-    for f in all_files:
-        basename = os.path.basename(f)
-        if not filename_regex.match(basename):
-            invalid_files.append(f)
-    
     if invalid_files:
-        print("ERROR: The following files have invalid names:")
-        for f in invalid_files:
-            print(f"  {f}")
-        raise Exception("Invalid filenames detected. Please check the naming convention.")
-    
+        msg = "\n".join("  " + f for f in invalid_files)
+        raise ValueError(
+            "ERROR: The following files have invalid names (expected "
+            f"<subjectID>_MMDDYYYY_HHMMSSdd.{ext_rx}):\n{msg}"
+        )
+
     print(f"All {len(all_files)} files have valid names and directory structure.")
     return True
 
