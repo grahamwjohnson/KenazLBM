@@ -199,7 +199,10 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
             checkpoint = torch.load(cached_path, map_location='cpu')
             som = ToroidalSOM_2(**checkpoint)  # adjust to your init
             som.load_state_dict(checkpoint['model_state_dict'])
+        except Exception as e:
+            print(f"Error loading SOM weights: {e}")
 
+        try:
             # Axis file
             axis_url = f"https://github.com/grahamwjohnson/kenazlbm/releases/download/{config['release_tag']}/{config['som_axis_file']}"
             axis_cache_path = os.path.join(_get_conda_cache(), config['som_axis_file'])
@@ -211,7 +214,7 @@ def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=Tr
             with open(axis_cache_path, "rb") as f:
                 som.axis_data = pickle.load(f)
         except Exception as e:
-            print(f"Error loading SOM: {e}")
+            print(f"Error loading SOM plot info: {e}")
 
     return bse, disc, bsp, bsv, som, config
 
