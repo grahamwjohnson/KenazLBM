@@ -37,7 +37,7 @@ def preprocess_directory(input_root="raw", output_root="preprocessed"):
             f.write(preprocessed_data)
 
 
-def validate_directory_structure(input_root="raw"):
+def validate_directory_structure(input_root="raw"): 
     """
     Validates that the directory structure is raw/*/*.[edf|EDF]
     and that filenames follow the expected format:
