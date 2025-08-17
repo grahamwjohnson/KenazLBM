@@ -1,5 +1,5 @@
 # src/kenazlbm/core.py
-import os
+import os, glob, re
 import torch
 from .hubconfig import _get_conda_cache, CONFIGS, _load_models
 
@@ -78,6 +78,50 @@ def check_models(codename='commongonolek_sheldrake'):
             continue
         print(f"{f}: ONLINE (not cached locally)")
 
+def validate_directory_structure(input_root="raw", file_pattern="*.edf"): 
+    """
+    Validates that the directory structure is raw/*/<file_pattern>
+    and that filenames follow the expected format:
+    <subjectID>_MMDDYYYY_HHMMSSdd.<ext>
+    where <subjectID> is any alphanumeric string.
+    
+    Args:
+        input_root (str): Root directory (default "raw")
+        file_pattern (str): Glob pattern for files (default "*.edf")
+    """
+    pattern = os.path.join(input_root, "*", file_pattern)
+    all_files = glob.glob(pattern)
+
+    # Regex for filenames: <subjectID>_<MMDDYYYY>_<HHMMSSdd>.<ext>
+    #   - subjectID = letters/numbers
+    #   - MMDDYYYY = 8 digits
+    #   - HHMMSS = 6 digits
+    #   - dd = 2 digits (deciseconds)
+    #   - extension: whatever is in file_pattern, handled case-insensitive
+    ext = os.path.splitext(file_pattern)[-1].lstrip("*.")
+    filename_regex = re.compile(
+        rf"^[A-Za-z0-9]+_\d{{8}}_\d{{8}}\d{{2}}\.{ext}$", re.IGNORECASE
+    )
+
+    invalid_files = []
+    
+    if not all_files:
+        raise Exception(f"ERROR: No files found with pattern {pattern}")
+
+    for f in all_files:
+        basename = os.path.basename(f)
+        if not filename_regex.match(basename):
+            invalid_files.append(f)
+    
+    if invalid_files:
+        print("ERROR: The following files have invalid names:")
+        for f in invalid_files:
+            print(f"  {f}")
+        raise Exception("Invalid filenames detected. Please check the naming convention.")
+    
+    print(f"All {len(all_files)} files have valid names and directory structure.")
+    return True
+
 
 def preprocess(in_dir, out_dir=None):
     """
@@ -109,13 +153,8 @@ def preprocess(in_dir, out_dir=None):
         os.makedirs(out_dir, exist_ok=True)
         
 
-    # Check to make sure the BSE model is chached, or download it
-
-
-
     # Example preprocessing logic (replace with actual)
     print(f"Preprocessing files in {in_dir} and saving to {out_dir}")
-
 
 
 def _check_cache_files(codename, keys):

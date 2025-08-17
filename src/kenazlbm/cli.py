@@ -1,7 +1,7 @@
 # src/kenazlbm/cli.py
 import argparse
-from .preprocess import preprocess_directory, validate_directory_structure
-from .core import run_bse, run_bsp, run_bsv, check_models, prefetch_models
+from .preprocess import preprocess_directory
+from .core import run_bse, run_bsp, run_bsv, check_models, prefetch_models, validate_directory_structure
 
 def main():
     parser = argparse.ArgumentParser(description="KenazLBM CLI - run inference pipelines")
