@@ -9,7 +9,7 @@ dependencies:
   - pip
   - numpy
   - scipy
-  - torch
+  - pytorch
   - torchinfo
   - scikit-learn
   - pip:

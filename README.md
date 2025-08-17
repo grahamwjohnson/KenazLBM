@@ -2,4 +2,4 @@
 ![Full_Logo](https://github.com/user-attachments/assets/83569f2c-a879-44fb-816d-87596327e974)
 
 # ReadTheDocs
-Step-by-step install and usage guide found at: 
+Step-by-step install and usage guide found at: https://kenazlbm.readthedocs.io/en/latest/#
