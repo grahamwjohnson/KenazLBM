@@ -15,3 +15,8 @@ dependencies:
       - sphinx
       - sphinx-rtd-theme
       - myst-parser
+
+# Run the post-install script to cache pretrained models
+# (Works on Binder/Repo2Docker or manual run: conda env create ... && ./postBuild)
+postBuild:
+  - python scripts/prefetch_models.py
