@@ -1,6 +1,7 @@
 import torch
 import pickle
 import requests
+import os
 from kenazlbm.BSE import BSE, Discriminator
 from kenazlbm.BSP import BSP, BSV
 from kenazlbm.ToroidalSOM_2 import ToroidalSOM_2
@@ -104,188 +105,118 @@ CONFIGS = {
 }
 
 
-def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=True, load_bse=True, load_discriminator=True, load_bsp=True, load_bsv=True, load_som=True, **kwargs):
-   """
-   Loads the BSE, BSP, BSV, & 2D-PaCMAP model with specified configuration and optionally pretrained weights.
+def _get_conda_cache():
+    """Return path to Conda environment model cache folder"""
+    env_prefix = os.environ.get("CONDA_PREFIX")
+    if env_prefix is None:
+        raise EnvironmentError("No Conda environment detected. Activate your environment first.")
+    cache_dir = os.path.join(env_prefix, "kenazlbm_models")
+    os.makedirs(cache_dir, exist_ok=True)
+    return cache_dir
 
+def _cached_or_download(url, filename):
+    """Check cache first, otherwise download"""
+    cache_dir = _get_conda_cache()
+    cached_path = os.path.join(cache_dir, filename)
+    if os.path.exists(cached_path):
+        return cached_path
+    # Download
+    try:
+        state_dict = torch.hub.load_state_dict_from_url(url, progress=True, map_location='cpu')
+        torch.save(state_dict, cached_path)
+        return cached_path
+    except Exception as e:
+        print(f"Error downloading {filename} from {url}: {e}")
+        raise
 
-   Args:
-       codename (str): The codename of the training run to load (e.g., 'sheldrake').
-       pretrained (bool): If True, returns a model pretrained for the given codename.
-       **kwargs: Additional parameters to override default configuration.
+def _load_models(codename='commongonolek_sheldrake', gpu_id='cpu', pretrained=True,
+                 load_bse=True, load_discriminator=True, load_bsp=True, load_bsv=True,
+                 load_som=True, **kwargs):
+    if codename not in CONFIGS:
+        raise ValueError(f"Codename '{codename}' not found. Available: {list(CONFIGS.keys())}")
 
+    config = CONFIGS[codename].copy()
+    config.update(kwargs)
 
-   Returns:
-       Pretrained BSE, BSP, BSV, & PaCMAP models with the specified configuration.
-   """
-   if codename not in CONFIGS:
-       raise ValueError(f"Codename '{codename}' not found in available configurations: {list(CONFIGS.keys())}")
+    # --- Brain-State Embedder ---
+    bse = None
+    if load_bse:
+        bse = BSE(gpu_id=gpu_id, **config)
+        if pretrained and config.get('bse_weight_file') and config.get('release_tag'):
+            url = f"https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{config['release_tag']}/{config['bse_weight_file']}"
+            try:
+                cached_path = _cached_or_download(url, config['bse_weight_file'])
+                state_dict = torch.load(cached_path, map_location='cpu')
+                bse.load_state_dict(state_dict)
+            except Exception as e:
+                print(f"Error loading BSE pretrained weights: {e}. Using random initialization.")
 
+    # --- Discriminator ---
+    disc = None
+    if load_discriminator:
+        disc = Discriminator(gpu_id=gpu_id, **config)
+        if pretrained and config.get('disc_weight_file') and config.get('release_tag'):
+            url = f"https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{config['release_tag']}/{config['disc_weight_file']}"
+            try:
+                cached_path = _cached_or_download(url, config['disc_weight_file'])
+                state_dict = torch.load(cached_path, map_location='cpu')
+                disc.load_state_dict(state_dict)
+            except Exception as e:
+                print(f"Error loading Discriminator pretrained weights: {e}")
 
-   config = CONFIGS[codename].copy()
-   config.update(kwargs)  # Override with any user-provided kwargs
+    # --- Brain-State Predictor ---
+    bsp = None
+    if load_bsp:
+        bsp = BSP(gpu_id=gpu_id, **config)
+        if pretrained and config.get('bsp_weight_file') and config.get('release_tag'):
+            url = f"https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{config['release_tag']}/{config['bsp_weight_file']}"
+            try:
+                cached_path = _cached_or_download(url, config['bsp_weight_file'])
+                state_dict = torch.load(cached_path, map_location='cpu')
+                bsp.load_state_dict(state_dict)
+            except Exception as e:
+                print(f"Error loading BSP pretrained weights: {e}")
 
+    # --- Brain-State Visualizer ---
+    bsv = None
+    if load_bsv:
+        bsv = BSV(gpu_id=gpu_id, **config)
+        if pretrained and config.get('bsv_weight_file') and config.get('release_tag'):
+            url = f"https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{config['release_tag']}/{config['bsv_weight_file']}"
+            try:
+                cached_path = _cached_or_download(url, config['bsv_weight_file'])
+                state_dict = torch.load(cached_path, map_location='cpu')
+                bsv.load_state_dict(state_dict)
+            except Exception as e:
+                print(f"Error loading BSV pretrained weights: {e}")
 
-   # *** Brain-State Embedder (BSE) ***
-   if load_bse:
-       bse = BSE(gpu_id=gpu_id, **config)
+    # --- 2D SOM ---
+    som = None
+    if load_som:
+        try:
+            url = f"https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{config['release_tag']}/{config['som_file']}"
+            cached_path = _cached_or_download(url, config['som_file'])
+            checkpoint = torch.load(cached_path, map_location='cpu')
+            som = ToroidalSOM_2(**checkpoint)  # adjust to your init
+            som.load_state_dict(checkpoint['model_state_dict'])
 
+            # Axis file
+            axis_url = f"https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{config['release_tag']}/{config['som_axis_file']}"
+            axis_cache_path = os.path.join(_get_conda_cache(), config['som_axis_file'])
+            if not os.path.exists(axis_cache_path):
+                r = requests.get(axis_url)
+                r.raise_for_status()
+                with open(axis_cache_path, "wb") as f:
+                    f.write(r.content)
+            with open(axis_cache_path, "rb") as f:
+                som.axis_data = pickle.load(f)
+        except Exception as e:
+            print(f"Error loading SOM: {e}")
 
-       if pretrained and config.get('bse_weight_file') and config.get('release_tag'):
-           weight_file = config['bse_weight_file']
-           release_tag = config['release_tag']
-           checkpoint_url = f'https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{release_tag}/{weight_file}'
-           try:
-               state_dict = torch.hub.load_state_dict_from_url(checkpoint_url, progress=True, map_location='cpu')
-               bse.load_state_dict(state_dict)
-           except Exception as e:
-               print(f"Error loading pretrained BSE weights for codename '{codename}': {e}")
-               print("Continuing with randomly initialized BSE model.")
-       elif pretrained:
-           print(f"No BSE weight file or release tag specified for BSE codename '{codename}'. Continuing with randomly initialized BSE model.")
+    return bse, disc, bsp, bsv, som, config
 
-
-   # *** KLD Adversarial Discriminator for BSE posterior vs. prior ***
-   disc = None
-   if load_discriminator:
-       disc = Discriminator(gpu_id=gpu_id, **config)
-      
-       # Discriinator: Load pretrained weights if requested
-       if pretrained and config.get('disc_weight_file') and config.get('release_tag'):
-           weight_file = config['disc_weight_file']
-           release_tag = config['release_tag']
-           checkpoint_url = f'https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{release_tag}/{weight_file}'
-           try:
-               state_dict = torch.hub.load_state_dict_from_url(checkpoint_url, progress=True, map_location='cpu')
-               disc.load_state_dict(state_dict)
-           except Exception as e:
-               print(f"Error loading pretrained Disc weights for codename '{codename}': {e}")
-               print("Continuing with randomly initialized model.")
-       elif pretrained:
-           print(f"No weight file or release tag specified for Disc codename '{codename}'. Continuing with randomly initialized model.")
-
-
-   # *** Brain-Sate Predictor (BSP) ***
-   bsp = None
-   if load_bsp:
-       bsp = BSP(gpu_id=gpu_id, **config)
-
-
-       # BSP: Load pretrained weights if requested
-       if pretrained and config.get('bsp_weight_file') and config.get('release_tag'):
-           weight_file = config['bsp_weight_file']
-           release_tag = config['release_tag']
-           checkpoint_url = f'https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{release_tag}/{weight_file}'
-           try:
-               state_dict = torch.hub.load_state_dict_from_url(checkpoint_url, progress=True, map_location='cpu')
-               bsp.load_state_dict(state_dict)
-           except Exception as e:
-               print(f"Error loading pretrained BSP weights for codename '{codename}': {e}")
-               print("Continuing with randomly initialized model.")
-       elif pretrained:
-           print(f"No weight file or release tag specified for codename '{codename}'. Continuing with randomly initialized model.")
-
-
-   # *** Brain-Sate Visualizer (BSV) ***
-   bsv = None
-   if load_bsv:
-       bsv = BSV(gpu_id=gpu_id, **config)
-
-
-       # BSV: Load pretrained weights if requested
-       if pretrained and config.get('bsv_weight_file') and config.get('release_tag'):
-           weight_file = config['bsv_weight_file']
-           release_tag = config['release_tag']
-           checkpoint_url = f'https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{release_tag}/{weight_file}'
-           try:
-               state_dict = torch.hub.load_state_dict_from_url(checkpoint_url, progress=True, map_location='cpu')
-               bsv.load_state_dict(state_dict)
-           except Exception as e:
-               print(f"Error loading pretrained BSV for codename '{codename}': {e}")
-               print("Continuing with randomly initialized model.")
-       elif pretrained:
-           print(f"No weight file or release tag specified for codename '{codename}'. Continuing with randomly initialized model.")
-
-
-   # *** 2D SOM/Kohonen ***
-   som = None
-   if load_som:
-       try:
-           weight_file = config['som_file']
-           release_tag = config['release_tag']
-           checkpoint_url = f'https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{release_tag}/{weight_file}'
-           checkpoint = torch.hub.load_state_dict_from_url(checkpoint_url, progress=True, map_location='cpu')
-
-
-           # Retrieve hyperparameters
-           grid_size = som_gridsize = checkpoint['grid_size']
-           input_dim = checkpoint['input_dim']
-           lr = checkpoint['lr']
-           sigma = checkpoint['sigma']
-           pca = checkpoint['pca']
-           lr_epoch_decay = checkpoint['lr_epoch_decay']
-           sigma_epoch_decay = checkpoint['sigma_epoch_decay']
-           sigma_min = checkpoint['sigma_min']
-           epoch = checkpoint['epoch']
-           batch_size = checkpoint['batch_size']
-           cim_kernel_sigma = checkpoint['cim_kernel_sigma']
-
-
-           # Create Toroidal SOM instance with same parameters
-           som = ToroidalSOM_2(grid_size=(grid_size, grid_size), input_dim=input_dim, batch_size=batch_size,
-                           lr=lr, lr_epoch_decay=lr_epoch_decay, cim_kernel_sigma=cim_kernel_sigma, sigma=sigma,
-                           sigma_epoch_decay=sigma_epoch_decay, sigma_min=sigma_min, pca=pca, device='cpu', data_for_init=None)
-
-
-           # Load weights
-           som.load_state_dict(checkpoint['model_state_dict'])
-           som.weights = checkpoint['weights']
-          
-           # Load the som axis for plotting
-           axis_file = config['som_axis_file']
-           release_tag = config['release_tag']
-           axis_url = f'https://github.com/grahamwjohnson/seeg_tornados_2/releases/download/{release_tag}/{axis_file}'
-
-
-           response = requests.get(axis_url)
-           response.raise_for_status()  # Ensure download was successful
-
-
-           # Load directly from bytes in memory
-           som.axis_data = pickle.loads(response.content)
-
-
-           print(f"Toroidal SOM model loaded from {checkpoint_url}")
-
-
-       except Exception as e:
-           print(f"Error loading som for codename '{codename}': {e}")
-           print("Returning empty variable")
-
-
-   return bse, disc, bsp, bsv, som, config
-
-
-def load_lbm(codename='commongonolek_sheldrake', pretrained=True, load_bse=True, load_discriminator=True, load_bsp=True, load_bsv=True, load_som=True, **kwargs):
-   """
-   Loads the BSE, BSP, BSV, & PaCMAP models with a specific training run's configuration
-   and optionally pretrained weights.
-
-
-   Args:
-       codename (str): The codename of the training run to load (e.g., 'sheldrake').
-       pretrained (bool): If True, returns a model pretrained for the given codename.
-       **kwargs: Additional parameters to override default configuration.
-
-
-   Returns:
-       Pretrained BSE, BSP, BSV, & PaCMAP models with the specified configuration.
-   """
-   return _load_models(codename=codename, pretrained=pretrained, load_bse=load_bse, load_discriminator=load_discriminator, load_bsp=load_bsp, load_bsv=load_bsv, load_som=load_som, **kwargs)
-
-
-
-
+def load_lbm(codename='commongonolek_sheldrake', **kwargs):
+    return _load_models(codename=codename, **kwargs)
 
 
 
