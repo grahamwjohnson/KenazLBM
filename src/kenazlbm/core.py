@@ -88,22 +88,121 @@ def check_models(codename='commongonolek_sheldrake'):
             continue
         print(f"{f}: ONLINE (not cached locally)")
 
-def preprocess(raw_dir):
+def preprocess(in_dir, out_dir=None):
     """
-    Example preprocessing function.
-    Replace with actual preprocessing logic.
+    Preprocess input files and save the results.
+
+    Expects files in the format:
+        <dir>/<subject_id>/*.[edf|EDF]
+
+    Args:
+        in_dir (str): Input directory containing raw EDF files.
+        out_dir (str, optional): Output directory to save preprocessed files.
+                                 If None, defaults to the input directory.
+
+    Raises:
+        FileNotFoundError: If the input directory does not exist.
+
+    Notes:
+        - Preprocessing should produce files like:
+          <dir>/<subject_id>/pp_*.pkl
+        - Replace placeholder logic with actual preprocessing implementation.
     """
-    print(f"Preprocessing input file: {raw_dir}")
-    # Add your preprocessing code here
+    if out_dir is None:
+        out_dir = in_dir
 
-def run_bse(preprocessed_dir):
-    print("Running BSE on the following directory:", preprocessed_dir)
-    print("Need to code")
+    if not os.path.exists(in_dir):
+        raise FileNotFoundError(f"Input directory does not exist: {in_dir}")
 
-def run_bsp(postbse_dir):
-    print("Running BSP on the following directory:", postbse_dir)
-    print("Need to code")
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
 
-def run_bsv(postbsp_dir):
-    print("Running BSV on the following directory:", postbsp_dir)
-    print("Need to code")
+    # Example preprocessing logic (replace with actual)
+    print(f"Preprocessing files in {in_dir} and saving to {out_dir}")
+
+
+def run_bse(in_dir, out_dir=None):
+    """
+    Run Brain-State Embedder (BSE) inference.
+
+    Expects files in the format:
+        <dir>/<subject_id>/pp_*.pkl
+
+    Args:
+        in_dir (str): Input directory containing preprocessed pickle files.
+        out_dir (str, optional): Output directory to save results.
+                                 If None, defaults to the input directory.
+
+    Raises:
+        FileNotFoundError: If the input directory does not exist.
+
+    Notes:
+        - Produces files like:
+          <dir>/<subject_id>/pp_bse_*.pkl
+    """
+    if out_dir is None:
+        out_dir = in_dir
+
+    if not os.path.exists(in_dir):
+        raise FileNotFoundError(f"Input directory does not exist: {in_dir}")
+
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+
+
+def run_bsp(in_dir, out_dir=None):
+    """
+    Run Brain-State Predictor (BSP) inference.
+
+    Expects files in the format:
+        <dir>/<subject_id>/pp_bse_*.pkl
+
+    Args:
+        in_dir (str): Input directory containing BSE output pickle files.
+        out_dir (str, optional): Output directory to save results.
+                                 If None, defaults to the input directory.
+
+    Raises:
+        FileNotFoundError: If the input directory does not exist.
+
+    Notes:
+        - Produces files like:
+          <dir>/<subject_id>/pp_bsp_*.pkl
+    """
+    if out_dir is None:
+        out_dir = in_dir
+
+    if not os.path.exists(in_dir):
+        raise FileNotFoundError(f"Input directory does not exist: {in_dir}")
+
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+
+
+def run_bsv(in_dir, out_dir=None):
+    """
+    Run Brain-State Visualizer (BSV) inference.
+
+    Expects files in the format:
+        <dir>/<subject_id>/pp_bse_*.pkl
+
+    Args:
+        in_dir (str): Input directory containing BSE output pickle files.
+        out_dir (str, optional): Output directory to save visualization results.
+                                 If None, defaults to the input directory.
+
+    Raises:
+        FileNotFoundError: If the input directory does not exist.
+
+    Notes:
+        - Produces visualization outputs (format TBD, e.g. images or reports).
+    """
+    if out_dir is None:
+        out_dir = in_dir
+
+    if not os.path.exists(in_dir):
+        raise FileNotFoundError(f"Input directory does not exist: {in_dir}")
+
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+
