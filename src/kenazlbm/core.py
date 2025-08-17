@@ -106,23 +106,25 @@ def validate_directory_structure(input_root="raw", file_pattern="*.edf"):
     stem, ext = os.path.splitext(file_pattern)
     if not ext:
         raise ValueError(f"File pattern must include an extension, got: {file_pattern}")
-    ext = ext.lstrip(".")  # normalize extension
 
-    # Convert stem wildcards to regex (.* for *)  
+    # Keep dot for glob
+    glob_pattern = f"*{stem}{ext}"  # e.g., "*_pp.pkl"
+
+    # For regex, remove leading '*' from stem, escape, replace '*' with '.*'
     stem_regex = re.escape(stem).replace(r"\*", ".*")
 
-    # Regex for prefix: <subjectID>_MMDDYYYY_HHMMSSdd + stem + .ext
+    # Regex for prefix: <subjectID>_MMDDYYYY_HHMMSSdd + stem pattern + .ext
     filename_regex = re.compile(
-        rf"^[A-Za-z0-9]+_\d{{8}}_\d{{8}}{stem_regex}\.{re.escape(ext)}$",
+        rf"^[A-Za-z0-9]+_\d{{8}}_\d{{8}}{stem_regex}\.{re.escape(ext.lstrip('.'))}$",
         re.IGNORECASE
     )
 
-    # Collect all files under <input_root>/* that end with stem+ext
-    candidate_files = glob.glob(os.path.join(input_root, "*", f"*{stem}{ext}"))
+    # Collect all files under <input_root>/* that match glob pattern
+    candidate_files = glob.glob(os.path.join(input_root, "*", glob_pattern))
 
     if not candidate_files:
         raise FileNotFoundError(
-            f"ERROR: No files found with pattern '*{stem}{ext}' under {input_root}"
+            f"ERROR: No files found with pattern '{glob_pattern}' under {input_root}"
         )
 
     # Only validate files that match stem+ext
@@ -133,7 +135,7 @@ def validate_directory_structure(input_root="raw", file_pattern="*.edf"):
         for f in invalid_files:
             print("  " + f)
 
-    print(f"Checked {len(candidate_files)} file(s) with pattern '*{stem}{ext}'. "
+    print(f"Checked {len(candidate_files)} file(s) with pattern '{glob_pattern}'. "
           f"{len(candidate_files)-len(invalid_files)} valid, {len(invalid_files)} invalid.")
     return True
 

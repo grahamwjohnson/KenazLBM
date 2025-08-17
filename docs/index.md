@@ -22,3 +22,5 @@ conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/ma
 ```bash
 conda activate lbm_env
 ```
+
+All preprocessing and model runs may be conducted in same directory or seperate directories for each step. 
