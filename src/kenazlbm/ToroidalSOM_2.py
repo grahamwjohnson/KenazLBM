@@ -8,8 +8,6 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import pairwise_distances
 from scipy.stats import entropy
 import matplotlib.cm as cm
-import matplotlib.colors as mcolors
-import random
 
 def select_cim_sigma(data, subsample=1000, scale=1.0, 
                      scales_to_test=None, bins=100, 
