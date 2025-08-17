@@ -2,4 +2,8 @@ sphinx
 sphinx-rtd-theme
 myst-parser
 torchinfo
-torch
+pytorch
+pip
+numpy
+scipy
+scikit-learn

@@ -11,9 +11,7 @@ dependencies:
   - scipy
   - pytorch
   - torchinfo
-  - sklearn
-  - math
-  - matplotlib
+  - scikit-learn
   - pip:
       - git+https://github.com/grahamwjohnson/KenazLBM.git#egg=kenazlbm
       - sphinx
