@@ -3,13 +3,3 @@ sphinx-rtd-theme
 myst-parser
 torchinfo
 torch
-math
-os
-pickle
-requests
-yaml
-numpy
-scipy
-mne 
-glob
-re

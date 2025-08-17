@@ -2,11 +2,11 @@
 
 This is the step-by-step guide on how to install and use KenazLBM on raw intracranial EEG data. 
 
+Assumptions: This guide is made on OS Ubuntu 22.04 with Nvidia GPUs, cannot guarentee any other compatability. 
+
 # Conda Install
 
-```bash
-curl -O https://repo.anaconda.com/archive/Anaconda3-2025.06-0-Linux-x86_64.sh
-```
+Follow directions at: https://www.anaconda.com/docs/getting-started/anaconda/install to install Anaconda3 on Ubuntu 22.04
 
 # KenazLBM Installation
 

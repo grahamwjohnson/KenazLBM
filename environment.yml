@@ -10,17 +10,9 @@ dependencies:
   - numpy
   - scipy
   - pytorch
+  - torchinfo
   - pip:
       - git+https://github.com/grahamwjohnson/KenazLBM.git#egg=kenazlbm
       - sphinx
       - sphinx-rtd-theme
       - myst-parser
-      - torchinfo
-      - torch
-      - os
-      - pickle
-      - requests
-      - yaml
-      - numpy
-      - glob
-      - re
