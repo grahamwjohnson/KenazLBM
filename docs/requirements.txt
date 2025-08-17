@@ -2,7 +2,7 @@ sphinx
 sphinx-rtd-theme
 myst-parser
 torchinfo
-pytorch
+torch
 pip
 numpy
 scipy
