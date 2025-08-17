@@ -2,18 +2,21 @@
 name: kenazlbm
 channels:
   - conda-forge
-  - defaults
   - pytorch
+  - defaults
 dependencies:
   - python=3.12
-  - pip
   - numpy
   - scipy
-  - pytorch
-  - torchinfo
   - scikit-learn
+  - matplotlib
+  - pandas
+  - seaborn
+  - torch
+  - pip
   - pip:
       - git+https://github.com/grahamwjohnson/KenazLBM.git#egg=kenazlbm
+      - torchinfo
       - sphinx
       - sphinx-rtd-theme
       - myst-parser
