@@ -39,7 +39,6 @@ def prefetch_models(codename='commongonolek_sheldrake', force=False):
     print("All models prefetched and cached successfully.")
     return CACHE_DIR
 
-
 def check_models(codename='commongonolek_sheldrake'):
     """
     Checks which pretrained models are present in CACHE_DIR and prints info.
@@ -77,10 +76,6 @@ def check_models(codename='commongonolek_sheldrake'):
         if f is None:
             continue
         print(f"{f}: ONLINE (not cached locally)")
-
-import os
-import glob
-import re
 
 def validate_directory_structure(input_root="raw", file_pattern="*.edf"):
     """
@@ -145,7 +140,6 @@ def _check_cache_files(codename, keys):
     required_files = [config.get(k) for k in keys if config.get(k)]
     return all(os.path.exists(os.path.join(CACHE_DIR, f)) for f in required_files)
 
-
 def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     """
     Run Brain-State Embedder (BSE) inference.
@@ -204,11 +198,15 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
             filename = os.path.splitext(os.path.basename(infile))[0]
             outfile = os.path.join(out_subj_dir, f"{filename}_bse.pkl")
 
+
+            # TODO
+
+
+
             print(f"Running BSE on {infile} -> {outfile}")
             result = f"BSE output of {infile}"  # dummy inference
             with open(outfile, 'w') as f:
                 f.write(result)
-
 
 def run_bsp(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     """
@@ -268,11 +266,12 @@ def run_bsp(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
             filename = os.path.splitext(os.path.basename(infile))[0]
             outfile = os.path.join(out_subj_dir, f"{filename}_bsp.pkl")
 
+            # TODO
+
             print(f"Running BSP on {infile} -> {outfile}")
             result = f"BSP output of {infile}"  # dummy inference
             with open(outfile, 'w') as f:
                 f.write(result)
-
 
 def run_bsv(in_dir, file_pattern, out_dir=None, codename='commongonolek_sheldrake'):
     """
@@ -331,6 +330,8 @@ def run_bsv(in_dir, file_pattern, out_dir=None, codename='commongonolek_sheldrak
         for infile in in_files:
             filename = os.path.splitext(os.path.basename(infile))[0]
             outfile = os.path.join(out_subj_dir, f"{filename}_bsv.pkl")
+
+            # TODO
 
             print(f"Running BSV on {infile} -> {outfile}")
             result = f"BSV output of {infile}"  # dummy inference

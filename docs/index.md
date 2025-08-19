@@ -18,7 +18,7 @@ After conda is installed, install **KenazLBM** with following line:
 conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/main/environment.yml
 ```
 
-# Running Commandline Calls to KenazLBM Models
+# Running Command-line Interface with KenazLBM Models
 ```bash
 conda activate lbm_env
 ```
