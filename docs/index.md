@@ -25,22 +25,22 @@ conda activate lbm_env
 
 All preprocessing and model runs may be conducted in same directory or seperate directories for each step. 
 
-'''bash
+```bash
 kenaxlbm prefetch_models
-'''
+```
 
 The BSE, BSP, and BSV pretrained models should now be downloaded and cached locally. To check, you can runn the following command:
 
-'''bash
+```bash
 kenazlbm check_models
-'''
+```
 
 The output should look like:
-'''bash
+```bash
 bse_weights.pth: FOUND (1021.75 MB)
 disc_weights.pth: FOUND (58.57 MB)
 bsp_weights.pth: FOUND (1600.60 MB)
 bsv_weights.pth: FOUND (5.29 MB)
 som_file.pth: ONLINE (not cached locally)
 som_axis_file.pkl: ONLINE (not cached locally)
-'''
+```
