@@ -18,7 +18,7 @@ After conda is installed, install **KenazLBM** with following line:
 conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/main/environment.yml
 ```
 
-# Running Command-line Interface with KenazLBM Models
+# Option 1: Running Command-line Interface with KenazLBM Models
 ```bash
 conda activate lbm_env
 ```
@@ -44,3 +44,10 @@ bsv_weights.pth: FOUND (5.29 MB)
 som_file.pth: ONLINE (not cached locally)
 som_axis_file.pkl: ONLINE (not cached locally)
 ```
+Note that the 2 self-organizing map (SOM) files are not cached locally
+
+
+# Option 2: Running KenazLBM Models With Python Scripts
+
+
+

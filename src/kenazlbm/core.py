@@ -2,6 +2,11 @@
 import os, glob, re
 import torch
 from .hubconfig import _get_conda_cache, CONFIGS, _load_models
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed import init_process_group, destroy_process_group, barrier
+import datetime
+
 
 # ---- Global cache dir ----
 ENV_PREFIX = os.environ.get("CONDA_PREFIX")
@@ -184,6 +189,33 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
         load_som=False
     )
 
+    # Set up DDP for inference if needed
+    world_size = torch.cuda.device_count()
+    print(f"Using world_size of {world_size} GPUs for Distributed Data Parallel (DDP) inference.")
+    
+    # Spawn subprocesses with start/join 
+    ctx = mp.get_context('spawn') # necessary to use context if have set_start_method anove?
+    children = []
+    for i in range(world_size):
+        subproc = ctx.Process(target=bse_main, args=(i, world_size, bse, in_dir, out_dir))
+        children.append(subproc)
+        subproc.start()
+
+    for i in range(world_size):
+        children[i].join()
+
+def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
+
+    # Initialize DDP 
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12345"
+    init_process_group(backend="nccl", rank=gpu_id, world_size=world_size, timeout=datetime.timedelta(minutes=999999))
+    bse = DDP(bse, device_ids=[gpu_id])
+    
+    # TODO
+
+
+
     subject_dirs = [d for d in glob.glob(os.path.join(in_dir, "*")) if os.path.isdir(d)]
     print(f"Found {len(subject_dirs)} subject(s): {[os.path.basename(d) for d in subject_dirs]}")
 
@@ -197,14 +229,18 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
         for infile in pp_files:
             filename = os.path.splitext(os.path.basename(infile))[0]
             outfile = os.path.join(out_subj_dir, f"{filename}_bse.pkl")
-
-
-            # TODO
-
-
-
             print(f"Running BSE on {infile} -> {outfile}")
+
+
+
+
+            # TODO: Actual BSE inference code here
+
             result = f"BSE output of {infile}"  # dummy inference
+
+
+
+
             with open(outfile, 'w') as f:
                 f.write(result)
 
