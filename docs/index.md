@@ -29,7 +29,7 @@ All preprocessing and model runs may be conducted in same directory or seperate 
 kenaxlbm prefetch_models
 ```
 
-The BSE, BSP, and BSV pretrained models should now be downloaded and cached locally. To check, you can runn the following command:
+The BSE, BSP, and BSV pretrained models should now be downloaded and cached locally. To check, you can run the following command:
 
 ```bash
 kenazlbm check_models

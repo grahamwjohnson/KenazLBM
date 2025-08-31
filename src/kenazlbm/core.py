@@ -191,7 +191,11 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
 
     # Set up DDP for inference if needed
     world_size = torch.cuda.device_count()
-    print(f"Using world_size of {world_size} GPUs for Distributed Data Parallel (DDP) inference.")
+    cuda_available = torch.cuda.is_available()
+    if cuda_available: 
+        print("CUDA available:", cuda_available)
+        print(f"Using world_size of {world_size} GPUs for Distributed Data Parallel (DDP) inference.")
+    else: raise Exception ("No CUDA devices found. BSE inference requires at least one GPU.")
     
     # Spawn subprocesses with start/join 
     ctx = mp.get_context('spawn') # necessary to use context if have set_start_method anove?
@@ -210,6 +214,7 @@ def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12345"
     init_process_group(backend="nccl", rank=gpu_id, world_size=world_size, timeout=datetime.timedelta(minutes=999999))
+    bse = bse.to(gpu_id)
     bse = DDP(bse, device_ids=[gpu_id])
     
     # TODO
