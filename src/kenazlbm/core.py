@@ -299,8 +299,6 @@ def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
     bse = bse.to(gpu_id)
     bse = DDP(bse, device_ids=[gpu_id])
     
-    barrier()  # Ensure all processes have initialized before proceeding
-
     # Process subjects, distributing work across GPUs
     subject_dirs = [d for d in glob.glob(os.path.join(in_dir, "*")) if os.path.isdir(d)]
     print(f"Found {len(subject_dirs)} subject(s): {[os.path.basename(d) for d in subject_dirs]}")
