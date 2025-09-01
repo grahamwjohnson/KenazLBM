@@ -22,10 +22,28 @@ class FileDataset(Dataset):
     def __init__(self, file_list, bse):
         self.file_list = file_list
         self.bse_samples = bse.encode_token_samples
+        self.FS = bse.FS
+        self.transformer_seq_length = bse.transformer_seq_length
         self.padded_channels = bse.padded_channels
 
-        print(f"FileDataset: bse_samples={self.bse_samples}, padded_channels={self.padded_channels}")
+        print(
+            f"FileDataset initialized with: "
+            f"BSE encode_token_samples: {self.bse_samples}, "
+            f"BSE FS: {self.FS}, "
+            f"BSE transformer_seq_length: {self.transformer_seq_length}, "
+            f"BSE padded_channels: {self.padded_channels}"
+        )
         print(len(file_list), "files found")
+
+    def make_ch_index_vec(self, padded_positions, shuffled_channel_indices):
+        """
+        Returns a vector of length self.padded_channels where:
+        - Entries at padded_positions are filled with shuffled_channel_indices.
+        - All other entries are -1.
+        """
+        ch_index_vec = torch.ones(self.padded_channels, dtype=torch.long, device=padded_positions.device) * -1
+        ch_index_vec[padded_positions] = shuffled_channel_indices
+        return ch_index_vec
 
     def __len__(self):
         return len(self.file_list)
@@ -44,24 +62,25 @@ class FileDataset(Dataset):
         actual_channels = x.shape[0]
         assert actual_channels <= self.padded_channels, "More channels than padded_channels!"
 
+        total_samps_in_file = x.shape[1]
+        assert total_samps_in_file >= self.transformer_seq_length, "File too short for transformer_seq_length!"
 
-
-        # TODO
-
-
+        num_chunks_in_file = total_samps_in_file // self.transformer_seq_length
+        print(f"File {os.path.basename(file_path)}: {actual_channels} channels, {total_samps_in_file} samples, {num_chunks_in_file} chunks")
 
         # Prepare output tensor [sequence, padded_channels, latent_dim]
-        padded = torch.zeros(self.bsp_transformer_seq_length, self.padded_channels, self.bse_samples, dtype=torch.float32)
+        padded = torch.zeros(num_chunks_in_file, self.padded_channels, self.bse_samples, dtype=torch.float32)
+        print("Padded shape:", padded.shape)
 
         # Randomize channel mapping for each time step independently
-        rand_ch_orders = torch.zeros(self.bsp_transformer_seq_length, self.padded_channels)
+        rand_ch_orders = torch.zeros(num_chunks_in_file, self.padded_channels)
 
         # Shuffle ONCE per entire token sequence, so each BSP token has same channel order
         shuffled_channel_indices = torch.randperm(actual_channels)
         padded_positions = torch.randperm(self.padded_channels)[:actual_channels]
 
         # Assign tokens
-        for t in range(self.bsp_transformer_seq_length):
+        for t in range(num_chunks_in_file):
 
             # Assign channel orders to variable (done within FOR loop to ensure it is clear that they all have the same channel order)
             rand_ch_orders[t, :] = self.make_ch_index_vec(padded_positions, shuffled_channel_indices)
@@ -73,6 +92,8 @@ class FileDataset(Dataset):
         # Unsqueeze a dimension and transpose to be ready for BSE
         # [seq, padded_channels, FS] --> [seq, FS, padded_channel, 1]
         out = padded.permute(0, 2, 1).unsqueeze(3)
+
+        return out, file_path, rand_ch_orders
 
 
 def prepare_ddp_dataloader(dataset: Dataset, batch_size: int, droplast=False, num_workers=0):
