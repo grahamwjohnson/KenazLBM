@@ -317,39 +317,44 @@ def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
     init_process_group(backend="nccl", rank=gpu_id, world_size=world_size, timeout=datetime.timedelta(minutes=999999))
     bse = bse.to(gpu_id)
     bse = DDP(bse, device_ids=[gpu_id])
-    
-    # Process subjects, distributing work across GPUs
-    subject_dirs = [d for d in glob.glob(os.path.join(in_dir, "*")) if os.path.isdir(d)]
-    print(f"Found {len(subject_dirs)} subject(s): {[os.path.basename(d) for d in subject_dirs]}")
+    bse.eval()
+    with torch.inference_mode():
+        
+        # Process subjects, distributing work across GPUs
+        subject_dirs = [d for d in glob.glob(os.path.join(in_dir, "*")) if os.path.isdir(d)]
+        print(f"Found {len(subject_dirs)} subject(s): {[os.path.basename(d) for d in subject_dirs]}")
 
-    for subj_path in subject_dirs:
-        subject_id = os.path.basename(subj_path)
-        out_subj_dir = os.path.join(out_dir, subject_id)
-        os.makedirs(out_subj_dir, exist_ok=True)
-        pp_files = glob.glob(os.path.join(subj_path, "*_pp.pkl"))
-        print(f"Processing subject '{subject_id}' with {len(pp_files)} file(s).")
+        # Iterate through subjects and make new dataloader for each
+        for subj_path in subject_dirs:
+            subject_id = os.path.basename(subj_path)
+            out_subj_dir = os.path.join(out_dir, subject_id)
+            os.makedirs(out_subj_dir, exist_ok=True)
+            pp_files = glob.glob(os.path.join(subj_path, "*_pp.pkl"))
+            print(f"Processing subject '{subject_id}' with {len(pp_files)} file(s).")
 
-        # Make Dataset & Dataloader for this subject's directory
-        dataset = FileDataset(pp_files, bse.module)  # use .module to access
-        dataloader, _ = prepare_ddp_dataloader(dataset, batch_size=1, droplast=False, num_workers=0)
+            # Make Dataset & Dataloader for this subject's directory
+            dataset = FileDataset(pp_files, bse.module)  # use .module to access
+            dataloader, _ = prepare_ddp_dataloader(dataset, batch_size=1, droplast=False, num_workers=0)
 
-        for infile in pp_files:
-            filename = os.path.splitext(os.path.basename(infile))[0]
-            outfile = os.path.join(out_subj_dir, f"{filename}_bse.pkl")
-            print(f"Running BSE on {infile} -> {outfile}")
+            for x, file_path, rand_ch_orders in dataloader: 
 
-
-
-
-            # TODO: Actual BSE inference code here
-
-            result = f"BSE output of {infile}"  # dummy inference
+                filename = os.path.splitext(os.path.basename(file_path))[0]
+                outfile = os.path.join(out_subj_dir, f"{filename}_bse.pkl")
+                print(f"Running BSE on {file_path} -> {outfile}")
 
 
 
 
-            with open(outfile, 'w') as f:
-                f.write(result)
+                # TODO: Actual BSE inference code here
+                print(f"x shaope{x.shape}", file_path, rand_ch_orders)
+
+                result = f"BSE output of {file_path}"  # dummy inference
+
+
+
+
+                with open(outfile, 'w') as f:
+                    f.write(result)
 
     destroy_process_group()
 
