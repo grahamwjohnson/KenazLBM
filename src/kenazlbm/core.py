@@ -4,9 +4,11 @@ import torch
 from .hubconfig import _get_conda_cache, CONFIGS, _load_models
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.distributed import DistributedSampler
 from torch.distributed import init_process_group, destroy_process_group, barrier
 import datetime
-
+import pickle
 
 # ---- Global cache dir ----
 ENV_PREFIX = os.environ.get("CONDA_PREFIX")
@@ -15,6 +17,85 @@ if ENV_PREFIX is None:
 CACHE_DIR = os.path.join(ENV_PREFIX, "kenazlbm_models")
 os.makedirs(CACHE_DIR, exist_ok=True)
 # --------------------------
+
+class FileDataset(Dataset):
+    def __init__(self, file_list, bse):
+        self.file_list = file_list
+        self.bse_samples = bse.encode_token_samples
+        self.padded_channels = bse.padded_channels
+
+        print(f"FileDataset: bse_samples={self.bse_samples}, padded_channels={self.padded_channels}")
+        print(len(file_list), "files found")
+
+    def __len__(self):
+        return len(self.file_list)
+
+    def __getitem__(self, idx):
+        file_path = self.file_list[idx]
+        
+        # Load the file's pickle
+        with open(file_path, 'rb') as file: file_data = pickle.load(file)  # shape: [channels, time]
+
+        x = torch.tensor(file_data, dtype=torch.float32)
+
+        # Reshape into [channels, seq_len, samples_per_step]
+        x = x.view(x.shape[0], -1, self.bse_samples)
+
+        actual_channels = x.shape[0]
+        assert actual_channels <= self.padded_channels, "More channels than padded_channels!"
+
+
+
+        # TODO
+
+
+
+        # Prepare output tensor [sequence, padded_channels, latent_dim]
+        padded = torch.zeros(self.bsp_transformer_seq_length, self.padded_channels, self.bse_samples, dtype=torch.float32)
+
+        # Randomize channel mapping for each time step independently
+        rand_ch_orders = torch.zeros(self.bsp_transformer_seq_length, self.padded_channels)
+
+        # Shuffle ONCE per entire token sequence, so each BSP token has same channel order
+        shuffled_channel_indices = torch.randperm(actual_channels)
+        padded_positions = torch.randperm(self.padded_channels)[:actual_channels]
+
+        # Assign tokens
+        for t in range(self.bsp_transformer_seq_length):
+
+            # Assign channel orders to variable (done within FOR loop to ensure it is clear that they all have the same channel order)
+            rand_ch_orders[t, :] = self.make_ch_index_vec(padded_positions, shuffled_channel_indices)
+
+            # Assign data to variable
+            for src_idx, dst_pos in zip(shuffled_channel_indices, padded_positions):
+                padded[t, dst_pos, :] = x[src_idx, t, :]  # use the corresponding time step
+
+        # Unsqueeze a dimension and transpose to be ready for BSE
+        # [seq, padded_channels, FS] --> [seq, FS, padded_channel, 1]
+        out = padded.permute(0, 2, 1).unsqueeze(3)
+
+
+def prepare_ddp_dataloader(dataset: Dataset, batch_size: int, droplast=False, num_workers=0):
+
+    if num_workers > 0:
+        persistent_workers=True
+        print("WARNING: num workers >0, have experienced odd errors...")
+
+    else:
+        persistent_workers=False
+
+    sampler = DistributedSampler(dataset, shuffle=True)
+
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        num_workers=num_workers,    
+        pin_memory=True,
+        shuffle=False,
+        sampler=sampler,
+        drop_last=droplast,
+        persistent_workers=persistent_workers
+    ), sampler
 
 def prefetch_models(codename='commongonolek_sheldrake', force=False):
     """
@@ -208,6 +289,7 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     for i in range(world_size):
         children[i].join()
 
+# DDP subprocess for BSE (will run on each GPU)
 def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
 
     # Initialize DDP 
@@ -217,9 +299,9 @@ def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
     bse = bse.to(gpu_id)
     bse = DDP(bse, device_ids=[gpu_id])
     
-    # TODO
+    barrier()  # Ensure all processes have initialized before proceeding
 
-
+    # Process subjects, distributing work across GPUs
     subject_dirs = [d for d in glob.glob(os.path.join(in_dir, "*")) if os.path.isdir(d)]
     print(f"Found {len(subject_dirs)} subject(s): {[os.path.basename(d) for d in subject_dirs]}")
 
@@ -227,9 +309,13 @@ def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
         subject_id = os.path.basename(subj_path)
         out_subj_dir = os.path.join(out_dir, subject_id)
         os.makedirs(out_subj_dir, exist_ok=True)
-
         pp_files = glob.glob(os.path.join(subj_path, "*_pp.pkl"))
         print(f"Processing subject '{subject_id}' with {len(pp_files)} file(s).")
+
+        # Make Dataset & Dataloader for this subject's directory
+        dataset = FileDataset(pp_files, bse.module)  # use .module to access
+        dataloader, _ = prepare_ddp_dataloader(dataset, batch_size=1, droplast=False, num_workers=0)
+
         for infile in pp_files:
             filename = os.path.splitext(os.path.basename(infile))[0]
             outfile = os.path.join(out_subj_dir, f"{filename}_bse.pkl")
