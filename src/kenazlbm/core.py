@@ -220,7 +220,6 @@ def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
     # TODO
 
 
-
     subject_dirs = [d for d in glob.glob(os.path.join(in_dir, "*")) if os.path.isdir(d)]
     print(f"Found {len(subject_dirs)} subject(s): {[os.path.basename(d) for d in subject_dirs]}")
 
@@ -248,6 +247,8 @@ def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
 
             with open(outfile, 'w') as f:
                 f.write(result)
+
+    destroy_process_group()
 
 def run_bsp(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     """
