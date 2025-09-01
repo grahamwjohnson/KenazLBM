@@ -22,14 +22,12 @@ class FileDataset(Dataset):
     def __init__(self, file_list, bse):
         self.file_list = file_list
         self.bse_samples = bse.encode_token_samples
-        self.FS = bse.FS
         self.transformer_seq_length = bse.transformer_seq_length
         self.padded_channels = bse.padded_channels
 
         print(
             f"FileDataset initialized with: "
             f"BSE encode_token_samples: {self.bse_samples}, "
-            f"BSE FS: {self.FS}, "
             f"BSE transformer_seq_length: {self.transformer_seq_length}, "
             f"BSE padded_channels: {self.padded_channels}"
         )
