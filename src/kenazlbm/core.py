@@ -93,7 +93,6 @@ class FileDataset(Dataset):
 
         return out, file_path, rand_ch_orders
 
-
 def prepare_ddp_dataloader(dataset: Dataset, batch_size: int, droplast=False, num_workers=0):
 
     if num_workers > 0:
@@ -346,6 +345,10 @@ def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
 
 
                 # TODO: Actual BSE inference code here
+
+
+
+                
                 print(f"x shaope{x.shape}", file_path, rand_ch_orders)
 
                 result = f"BSE output of {file_path}"  # dummy inference

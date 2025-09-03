@@ -18,15 +18,49 @@ After conda is installed, install **KenazLBM** with following line:
 conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/main/environment.yml
 ```
 
+
+
 # Option 1: Running Command-line Interface with KenazLBM Models
+
+File Format Assumptions:
+
+.EDF format
+Sampling frequency is multiple of 512 Hz
+File name must be formatted as: "<subject_id>_<MMDDYYY>_<HHMMSSSS>" where SSSS is seconds and deciseconds. 
+Example is "Epat27_02182020_17072099"
+
+Directory structure must be formatted as:
+
+```bash
+parent_dir
+    subject_id_0
+        file0
+        file1
+        ...
+    subject_id_1
+        file0
+        file1
+        ...
+```
+    
+NOTE: All preprocessing and model runs will be conducted in same directory.
+
 ```bash
 conda activate lbm_env
 ```
 
-All preprocessing and model runs may be conducted in same directory or seperate directories for each step. 
+The first step is to preprocess your data. This command will filter the data and histogram equalize. The zero-centered histogram equalization (ZHE) scheme looks at the first 24 hours (default) present in your files (missing data included in time calculation), then applies the calculated equalization scheme to all data. To change the hours used for equalization clculation, pass in a different value for '24' below. Preprocessing may take multiple minutes per file for large EDF files (e.g. 5-10 GB) depending on CPU and RAM resources. 
+
+This step will create files named as follows:
+<filename>_bipole_filtered.pkl  # This is before equalization
+<filename>_pp.pkl  # This is the equalized preprocessed ('pp') file
 
 ```bash
-kenaxlbm prefetch_models
+kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24
+
+
+```bash
+kenazlbm prefetch_models
 ```
 
 The BSE, BSP, and BSV pretrained models should now be downloaded and cached locally. To check, you can run the following command:
