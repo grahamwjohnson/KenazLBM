@@ -6,11 +6,14 @@ Assumptions: This guide is made on OS Ubuntu 22.04 with Nvidia GPUs, cannot guar
 
 This ReadTheDocs is based on the GitHub repository: https://github.com/grahamwjohnson/KenazLBM
 
-# Conda Install
+
+# Installation
+
+## Conda Install
 
 Follow directions at: https://www.anaconda.com/docs/getting-started/anaconda/install to install Anaconda3 on Ubuntu 22.04
 
-# KenazLBM Installation
+## KenazLBM Installation
 
 After conda is installed, install **KenazLBM** with following line:
 
@@ -18,9 +21,9 @@ After conda is installed, install **KenazLBM** with following line:
 conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/main/environment.yml
 ```
 
+# Model Usage
 
-
-# Option 1: Running Command-line Interface with KenazLBM Models
+## Option 1: Running Command-line Interface with KenazLBM Models
 
 File Format Assumptions:
 
@@ -48,6 +51,9 @@ NOTE: All preprocessing and model runs will be conducted in same directory.
 ```bash
 conda activate lbm_env
 ```
+
+
+### Preprocessing
 
 The first step is to preprocess your data. This command will filter the data and histogram equalize it to prepare for input ot the BSE. The zero-centered histogram equalization (ZHE) scheme looks at the first 24 hours (default) present in your files (missing data included in time calculation), then applies the calculated equalization scheme to all data. To change the hours used for equalization clculation, pass in a different value for '24' below. Preprocessing may take multiple minutes per file for large EDF files (e.g. 5-10 GB) depending on CPU and RAM resources. 
 
@@ -96,6 +102,7 @@ kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24 --checkpoint 1
 ```
 
 
+### Prefetch Pretrained Models
 
 Next we will obtain the pretrained models from Torchhub
 
@@ -121,7 +128,12 @@ som_axis_file.pkl: ONLINE (not cached locally)
 Note that the 2 self-organizing map (SOM) files are not cached locally
 
 
-# Option 2: Running KenazLBM Models With Python Scripts
+
+
+
+
+
+## Option 2: Running KenazLBM Models With Python Scripts
 
 
 
