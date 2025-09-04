@@ -426,7 +426,6 @@ def aquire_scale_params(
 def employ_norm(
     files: list,
     file_starts_dt: list,
-    num_channels: int,
     file_buffer_sec: float,
     resamp_freq: float,
     save_dir: str,
@@ -497,6 +496,11 @@ def employ_norm(
         print("Loading big pickle")
         with open(file, "rb") as f:
             filt_data = pickle.load(f)
+
+        if i == 0: num_channels = filt_data.shape[0]
+        else:
+            if filt_data.shape[0] != num_channels: raise Exception("ERROR: Not all files for subject have the same number of channels after bipolar montage")
+            num_channels = filt_data.shape[0]
 
         # Ensure that data is in float16 format
         filt_data = np.float16(filt_data)
@@ -665,35 +669,26 @@ def preprocess_directory(in_dir="raw", out_dir=None, eq_hrs=24, checkpoint=0, de
     for subj_path in subject_dirs:
         subject_id = os.path.basename(subj_path)
         
-        # Find all EDF files in this subject directory
-        edf_files = glob.glob(os.path.join(subj_path, "*.[Ee][Dd][Ff]"))
+        # If checkpoint ==0 start preprocessing from scratch
+        if checkpoint <= 0:
+            
+            # Find all EDF files in this subject directory
+            edf_files = glob.glob(os.path.join(subj_path, "*.[Ee][Dd][Ff]"))
+            print(f"\nProcessing subject: {subject_id} with {len(edf_files)} EDF files.")
+            if not edf_files:
+                print(f"  No EDF files found for subject {subject_id}, skipping.")
+                continue
 
-        print(f"\nProcessing subject: {subject_id} with {len(edf_files)} EDF files.")
+            num_channels = np.ones(len(edf_files), dtype=int) * -1  # Placeholder, will be set in montage_filter_pickle_edfs
+        
+            file_index = 0
+            for infile in edf_files:
+                filename, ext = os.path.splitext(os.path.basename(infile))
+                outfile = os.path.join(out_dir, subject_id, f"{filename}_bipole_filtered.pkl")
 
-        if not edf_files:
-            print(f"  No EDF files found for subject {subject_id}, skipping.")
-            continue
+                # Ensure the output directory exists
+                os.makedirs(os.path.dirname(outfile), exist_ok=True)
 
-        num_channels = np.ones(len(edf_files), dtype=int) * -1  # Placeholder, will be set in montage_filter_pickle_edfs
-       
-       
-       
-       
-        # TODO FIX NUM CHANNELS LOGIC
-
-
-
-
-
-        file_index = 0
-        for infile in edf_files:
-            filename, ext = os.path.splitext(os.path.basename(infile))
-            outfile = os.path.join(out_dir, subject_id, f"{filename}_bipole_filtered.pkl")
-
-            # Ensure the output directory exists
-            os.makedirs(os.path.dirname(outfile), exist_ok=True)
-
-            if checkpoint <= 0:
                 num_channels[file_index] = montage_filter_pickle_edfs(
                     pat_id=subject_id,
                     edf_file=infile,
@@ -703,19 +698,12 @@ def preprocess_directory(in_dir="raw", out_dir=None, eq_hrs=24, checkpoint=0, de
                     montage='BIPOLE',
                     ch_names_to_ignore=channels_to_ignore,
                     ignore_channel_units=False)
-                
-            file_index += 1
-        
-
-
-        # TODO FIX NUM CHANNELS LOGIC
-
-        # Now check if all channel counts are the same
-        if not np.all(num_channels == num_channels[0]):
-            raise Exception(f"ERROR: Not all files for subject {subject_id} have the same number of channels after bipolar montage. Channel counts: {num_channels}")
-
-
-
+                    
+                file_index += 1
+            
+            # Now check if all channel counts are the same
+            if not np.all(num_channels == num_channels[0]):
+                raise Exception(f"ERROR: Not all files for subject {subject_id} have the same number of channels after bipolar montage. Channel counts: {num_channels}")
 
         # Now that all of the files for this subject are bipole montaged and filtered,
         # we can do the equalization step across all files for this subject
@@ -736,8 +724,13 @@ def preprocess_directory(in_dir="raw", out_dir=None, eq_hrs=24, checkpoint=0, de
 
         # Now can call our equaliztion subfunction
         if checkpoint <= 1:
+
+            # Get the number of channels from bipole montage CSV
+            csv_name = out_dir + f'/{subject_id}/metadata/{subject_id}_bipolar_montage_names_and_indexes_from_rawEDF.csv'
+            num_channels_incsv = sum(1 for line in open(csv_name)) - 1  # subtract 1 for header
+
             aquire_scale_params(
-                num_channels=num_channels[0],  # All files have same number of channels
+                num_channels=num_channels_incsv,
                 files=preprocessed_files,
                 file_starts_dt=file_starts_dt, 
                 save_dir=out_dir + '/' + subject_id,
@@ -748,10 +741,9 @@ def preprocess_directory(in_dir="raw", out_dir=None, eq_hrs=24, checkpoint=0, de
                 histo_max=10000,
                 num_bins=100001)
 
-
+        # Now employ the calculated equalization on all files for this subject
+        # Load the saved scaling params
         if checkpoint <= 2:
-            # Now employ the calculated equalization on all files for this subject
-            # Load the saved scaling params
             with open(out_dir + '/' + subject_id + '/metadata/scaling_metadata/linear_interpolations_by_channel.pkl', "rb") as f:
                 linear_interp_by_ch = pickle.load(f)    
             
@@ -759,7 +751,6 @@ def preprocess_directory(in_dir="raw", out_dir=None, eq_hrs=24, checkpoint=0, de
             employ_norm(
                 files=preprocessed_files,
                 file_starts_dt=file_starts_dt,
-                num_channels=num_channels[0],
                 file_buffer_sec=0,
                 resamp_freq=desired_samp_freq,
                 save_dir=out_dir + '/' + subject_id + '/preprocessed_epoched_data',
@@ -778,4 +769,4 @@ def preprocess_directory(in_dir="raw", out_dir=None, eq_hrs=24, checkpoint=0, de
 # For Development and Debugging
 if __name__ == "__main__":
     # preprocess_directory('/home/graham/Downloads/test_raw_inputs')
-    preprocess_directory('/home/graham/Downloads/test_raw2')
+    preprocess_directory('/home/graham/Downloads/test_raw2', checkpoint=2)

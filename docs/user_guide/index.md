@@ -1,11 +1,3 @@
-# Kenaz Large Brain-State Model (KenazLBM)
-
-This is the step-by-step guide on how to install and use KenazLBM on raw intracranial EEG data. 
-
-Assumptions: This guide is made on OS Ubuntu 22.04 with Nvidia GPUs, cannot guarentee any other compatability. 
-
-This ReadTheDocs is based on the GitHub repository: https://github.com/grahamwjohnson/KenazLBM
-
 # Conda Install
 
 Follow directions at: https://www.anaconda.com/docs/getting-started/anaconda/install to install Anaconda3 on Ubuntu 22.04
@@ -17,7 +9,6 @@ After conda is installed, install **KenazLBM** with following line:
 ```bash
 conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/main/environment.yml
 ```
-
 
 
 # Option 1: Running Command-line Interface with KenazLBM Models
@@ -97,6 +88,7 @@ kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24 --checkpoint 1
 
 
 
+
 Next we will obtain the pretrained models from Torchhub
 
 ```bash
@@ -122,6 +114,4 @@ Note that the 2 self-organizing map (SOM) files are not cached locally
 
 
 # Option 2: Running KenazLBM Models With Python Scripts
-
-
 
