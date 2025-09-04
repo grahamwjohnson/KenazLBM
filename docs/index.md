@@ -51,21 +51,50 @@ conda activate lbm_env
 
 The first step is to preprocess your data. This command will filter the data and histogram equalize it to prepare for input ot the BSE. The zero-centered histogram equalization (ZHE) scheme looks at the first 24 hours (default) present in your files (missing data included in time calculation), then applies the calculated equalization scheme to all data. To change the hours used for equalization clculation, pass in a different value for '24' below. Preprocessing may take multiple minutes per file for large EDF files (e.g. 5-10 GB) depending on CPU and RAM resources. 
 
-This step will create files named as follows:
+```bash
+kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24
+```
+
+After preprocessing, directory structure will look as follows:
 
 ```bash
 parent_dir
     subject_id_0
-        <filename>_bipole_filtered.pkl  # This is before equalization
+        metadata
+            scaling_metadata
+                histo_bin_counts.pkl # Just for reference
+                linear_interpolations_by_channel.pkl # Equalization scheme calculations from X hours of data, then used for all data
+                normalization_epoch_seconds.pkl
+            ...bipolar_montage_names_and_indexes_from_rawEDF.csv # Just for reference
         preprocessed_epoched_data
+            metadata
+                normalization_histograms
+                    filename0
+                    filename1
+                    ...
+                    JPEG
+                        ...jpg # Visualize the equalization
+                    SVG # Same as JPEGs
+                zero_padded_epochs
+                    ....pkl # Any files that have a large number of 0 values will be detected and saved here
+                            # The reason is that many .EDF export systems will zero-pad gaps in recordings
             ...pkl  # These are the equalized data epoched to 1024 seconds
             ...pkl
             ...pkl
+        ...EDF # original files
+        ..._bipole_filtered.pkl  # This is before equalization
+
 ```
 
-```bash
-kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24
+Troubleshooting: this script is computational intensive and may crash/hang. Can restart the script at various checkpoints using the '--checkpoint' option, where '0' is default and will start preprocessing from start, '1' is after and bipole montage and filtering (i.e. the '...bipole_filtered.pkl' files have already been made, '2' is after normalization has been aquired. )
 
+```bash
+kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24 --checkpoint 1
+```
+
+
+
+Next we will obtain the pretrained models from Torchhub
 
 ```bash
 kenazlbm prefetch_models

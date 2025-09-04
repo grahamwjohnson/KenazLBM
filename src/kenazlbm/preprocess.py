@@ -440,7 +440,6 @@ def employ_norm(
 
     """
     @author grahamwjohnson
-    @author: grahamwjohnson
     Developed between 2023-2025
 
     Script for Normalizing, Scaling, and Epoching Time Series Data
@@ -625,7 +624,7 @@ def employ_norm(
         gc.collect()
         print("Garbage collected")
 
-def preprocess_directory(in_dir="raw", out_dir=None, eq_hrs=24,  desired_samp_freq=512):
+def preprocess_directory(in_dir="raw", out_dir=None, eq_hrs=24, checkpoint=0, desired_samp_freq=512):
     """
     Preprocess all .EDF/.edf files in the raw/*/* structure
     and save them to preprocessed/*/*_pp.pkl per subject directory.
@@ -676,6 +675,15 @@ def preprocess_directory(in_dir="raw", out_dir=None, eq_hrs=24,  desired_samp_fr
             continue
 
         num_channels = np.ones(len(edf_files), dtype=int) * -1  # Placeholder, will be set in montage_filter_pickle_edfs
+       
+       
+       
+       
+        # TODO FIX NUM CHANNELS LOGIC
+
+
+
+
 
         file_index = 0
         for infile in edf_files:
@@ -685,21 +693,29 @@ def preprocess_directory(in_dir="raw", out_dir=None, eq_hrs=24,  desired_samp_fr
             # Ensure the output directory exists
             os.makedirs(os.path.dirname(outfile), exist_ok=True)
 
-            # num_channels[file_index] = montage_filter_pickle_edfs(
-            #     pat_id=subject_id,
-            #     edf_file=infile,
-            #     outfile=outfile,
-            #     desired_samp_freq=desired_samp_freq,
-            #     expected_unit='uV',
-            #     montage='BIPOLE',
-            #     ch_names_to_ignore=channels_to_ignore,
-            #     ignore_channel_units=False)
-            
+            if checkpoint <= 0:
+                num_channels[file_index] = montage_filter_pickle_edfs(
+                    pat_id=subject_id,
+                    edf_file=infile,
+                    outfile=outfile,
+                    desired_samp_freq=desired_samp_freq,
+                    expected_unit='uV',
+                    montage='BIPOLE',
+                    ch_names_to_ignore=channels_to_ignore,
+                    ignore_channel_units=False)
+                
             file_index += 1
         
+
+
+        # TODO FIX NUM CHANNELS LOGIC
+
         # Now check if all channel counts are the same
         if not np.all(num_channels == num_channels[0]):
             raise Exception(f"ERROR: Not all files for subject {subject_id} have the same number of channels after bipolar montage. Channel counts: {num_channels}")
+
+
+
 
         # Now that all of the files for this subject are bipole montaged and filtered,
         # we can do the equalization step across all files for this subject
@@ -719,43 +735,44 @@ def preprocess_directory(in_dir="raw", out_dir=None, eq_hrs=24,  desired_samp_fr
                 raise ValueError(f"Filename {f} does not contain a valid datetime string.")
 
         # Now can call our equaliztion subfunction
-        aquire_scale_params(
-            num_channels=101, #######################################################num_channels[0],  # All files have same number of channels
-            files=preprocessed_files,
-            file_starts_dt=file_starts_dt, 
-            save_dir=out_dir + '/' + subject_id,
-            scale_epoch_hours=eq_hrs,
-            buffer_start_hours=0,
-            resamp_freq=desired_samp_freq,
-            histo_min=-10000,
-            histo_max=10000,
-            num_bins=100001
-        )
+        if checkpoint <= 1:
+            aquire_scale_params(
+                num_channels=num_channels[0],  # All files have same number of channels
+                files=preprocessed_files,
+                file_starts_dt=file_starts_dt, 
+                save_dir=out_dir + '/' + subject_id,
+                scale_epoch_hours=eq_hrs,
+                buffer_start_hours=0,
+                resamp_freq=desired_samp_freq,
+                histo_min=-10000,
+                histo_max=10000,
+                num_bins=100001)
 
-        # Now employ the calculated equalization on all files for this subject
-        # Load the saved scaling params
-        with open(out_dir + '/' + subject_id + '/metadata/scaling_metadata/linear_interpolations_by_channel.pkl', "rb") as f:
-            linear_interp_by_ch = pickle.load(f)    
-        
-        # Now can call our scaling and epoching subfunction
-        employ_norm(
-            files=preprocessed_files,
-            file_starts_dt=file_starts_dt,
-            num_channels=101,   # ############################################################### num_channels[0],
-            file_buffer_sec=0,
-            resamp_freq=desired_samp_freq,
-            save_dir=out_dir + '/' + subject_id,
-            linear_interp_by_ch=linear_interp_by_ch,
-            out_dur=1024,
-            out_stride=1024,
-            montage='BIPOLE',
-            savename_base=subject_id,
-            PROCESS_FILE_DEBUG_LIST=[]
-        )
 
+        if checkpoint <= 2:
+            # Now employ the calculated equalization on all files for this subject
+            # Load the saved scaling params
+            with open(out_dir + '/' + subject_id + '/metadata/scaling_metadata/linear_interpolations_by_channel.pkl', "rb") as f:
+                linear_interp_by_ch = pickle.load(f)    
+            
+            # Now can call our scaling and epoching subfunction
+            employ_norm(
+                files=preprocessed_files,
+                file_starts_dt=file_starts_dt,
+                num_channels=num_channels[0],
+                file_buffer_sec=0,
+                resamp_freq=desired_samp_freq,
+                save_dir=out_dir + '/' + subject_id + '/preprocessed_epoched_data',
+                linear_interp_by_ch=linear_interp_by_ch,
+                out_dur=1024,
+                out_stride=1024,
+                montage='BIPOLE',
+                savename_base=subject_id,
+                PROCESS_FILE_DEBUG_LIST=[])
+
+        else: raise Exception(f"ERROR: Checkpoint value {checkpoint} not recognized. Must be 0, 1, or 2.")
 
     print("\nAll subjects preprocessed successfully.")
-
 
 
 # For Development and Debugging
