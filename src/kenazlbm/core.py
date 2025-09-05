@@ -207,7 +207,7 @@ def run_models(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
 
     Notes:
         - Produces *_bse outputs like:
-          <out_dir>/<subject_id>/bse/*_bipole_scaled_filtered_data_PostBSE.pkl
+          <out_dir>/<subject_id>/bse/*_bipole_scaled_filtered_data_PostBSEV.pkl
     """
     if out_dir is None:
         out_dir = in_dir
@@ -282,7 +282,7 @@ def main(gpu_id, world_size, codename, in_dir, out_dir):
         for subj_path in subject_dirs:
             subject_id = os.path.basename(subj_path)
             in_epoched_dir = os.path.join(subj_path, "preprocessed_epoched_data")
-            out_bse_dir = os.path.join(out_dir, subject_id, "bse")
+            out_bse_dir = os.path.join(out_dir, subject_id, "bsev")
             os.makedirs(out_bse_dir, exist_ok=True)
             pp_files = glob.glob(os.path.join(in_epoched_dir, "*_bipole_scaled_filtered_data.pkl"))
             print(f"Processing subject '{subject_id}' with {len(pp_files)} file(s).")
@@ -292,33 +292,41 @@ def main(gpu_id, world_size, codename, in_dir, out_dir):
 
             for x, file_path, rand_ch_orders in dataloader: 
                 filename = os.path.splitext(os.path.basename(file_path[0]))[0]
-                outfile = os.path.join(out_bse_dir, f"{filename}_PostBSE.pkl")
+                outfile = os.path.join(out_bse_dir, f"{filename}_PostBSEV.pkl")
                 print(f"Running BSE on {file_path[0]} -> {outfile}")
 
-                # Run one batch at a time to fit on small GPUs
-                for i in range(x.shape[1]):
-                    x_batch = x[:,i, :, :, :].to(gpu_id)  # Move input to the correct GPU
+                # Run max batch size at a time
+                bsize = bse.module.transformer_encoder.params.max_batch_size
+                num_epochs = x.shape[1]
+
+                bsv_z_all = torch.empty(x.shape[1], bsv.module.dims[-1], device=gpu_id)  # Preallocate BSV output
+                for i in range(0, num_epochs, bsize):
+                    x_batch = x[0,i:i+bsize, :, :, :].to(gpu_id)  # Move input to the correct GPU
                     
-                    # Run through the BSE model
-                    z_pseudobatch, mean_pseudobatch, logvar_pseudobatch, mogpreds_pseudobatch, attW = bse(x_batch, reverse=False)
-                
+                    ### BSE Encoder
+                    # Forward pass in stacked batch through BSE encoder
+                    z_pseudobatch, _, _, _, _ = bse(x_batch, reverse=False) # No shift if not causal masking
 
+                    ### BSP2E
+                    post_bse_z = z_pseudobatch.reshape(-1, bse.module.transformer_seq_length * bse.module.encode_token_samples, bse.module.latent_dim).unsqueeze(1)
+                    _, _, post_bse2p_z = bsp.module.bse2p(post_bse_z)
 
+                    ### BSV Encoder
+                    _, _, _, bsv_z = bsv(post_bse2p_z)
 
+                    bsv_z_all[i:i+bsize, :] = bsv_z.squeeze(1)  
 
-
-                print(f"x shape {x.shape}", file_path[0], rand_ch_orders)
-
-                result = f"BSE output of {file_path}"  # dummy inference
-
-                with open(outfile, 'w') as f:
-                    f.write(result)
+                # Move result to CPU and convert to numpy & save pickle
+                bsv_z_all = bsv_z_all.cpu().numpy()
+                with open(outfile, 'wb') as f: pickle.dump(bsv_z_all, f)
 
     destroy_process_group()
 
 
 
 if __name__ == "__main__":
+    prefetch_models()
+    check_models()
     # For Development and Debugging
     run_models('/home/graham/Downloads/test_raw2')
     # run_bsp('/home/graham/Downloads/test_raw2')
