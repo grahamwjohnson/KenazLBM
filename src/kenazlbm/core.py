@@ -323,7 +323,6 @@ def main(gpu_id, world_size, codename, in_dir, out_dir):
     destroy_process_group()
 
 
-
 if __name__ == "__main__":
     prefetch_models()
     check_models()

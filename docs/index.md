@@ -150,19 +150,23 @@ som_axis_file.pkl: ONLINE (not cached locally)
 
 ### Step 3: Running the BSE
 
-*(Instructions to be added)*
+To run the preprocessed data through the models, we can now call the following:
 
+```bash
+kenazlbm run_models --input '/path/to/parent_dir'
+```
 ---
 
-### Step 4: Running the BSP
+This will look for the **'parent_dir/subject_id/preprocessed_epoched_data'** directory and run all .pkl files in the directory through the following:
 
-*(Instructions to be added)*
+--> BSE --> BSV             # These outputs will be saved in 'bsev' directory
+--> BSE --> BSP --> BSV     # These outputs will be saved in 'bsepv' directory
 
 ---
 
 ### Option 2: Python Scripts
 
-*(Instructions to be added)*
+To have more granular control of the model usage, or to get intermediate outputs like full size 1024-dimensional embeddings from the BSE, then you can interact within the models in a python script as follows:
 
 
 
