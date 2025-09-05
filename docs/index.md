@@ -31,8 +31,8 @@ The 'kenazlbm' package can now be used within the conda 'lbm_env' environment.
 
 IMPORTANT: File Format Assumptions: 
 1) All files are .EDF format
-2) Sampling frequency is multiple of 512 Hz
-3) File name must be formatted as: "<subject_id>_<MMDDYYY>_<HHMMSSSS>" where SSSS is seconds and deciseconds: Example is "Epat27_02182020_17072099"
+2) Sampling frequency is 512 Hz or is multiple of 512 Hz
+3) File name must be formatted as: 'subjectid_MMDDYYY_HHMMSSSS' where SSSS is seconds and deciseconds: Example is "Epat27_02182020_17072099"
 
 IMPORTANT: Directory structure assumptions:
 ```bash
@@ -111,6 +111,7 @@ Example preprocessing call to start preprocessing with '...bipole_filtered.pkl' 
 kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24 --checkpoint 2
 ```
 
+To visualize the preprocessed files, you can use the 'seeg_epoch_explorer.py' which provides a GUI to view .pkl files after preprocessing. 
 
 ### Prefetch Pretrained Models
 

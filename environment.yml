@@ -20,3 +20,4 @@ dependencies:
       - sphinx
       - sphinx-rtd-theme
       - myst-parser
+      - pyedflib==0.1.32
