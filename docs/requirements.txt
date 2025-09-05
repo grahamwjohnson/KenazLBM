@@ -10,6 +10,5 @@ scikit-learn
 joblib
 pyedflib
 matplotlib
-sys
 datetime
 pandas
