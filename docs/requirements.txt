@@ -5,7 +5,6 @@ torchinfo
 pip
 numpy
 scipy
-scipy.signal
 torch
 scikit-learn
 joblib
