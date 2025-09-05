@@ -1,7 +1,6 @@
 # src/kenazlbm/core.py
 import os, glob, re
 import torch
-from .hubconfig import _get_conda_cache, CONFIGS, _load_models
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import Dataset, DataLoader
@@ -9,6 +8,12 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.distributed import init_process_group, destroy_process_group, barrier
 import datetime
 import pickle
+
+try:
+    from .hubconfig import _get_conda_cache, CONFIGS, _load_models
+except ImportError:
+    # Fallback for running as a script
+    from hubconfig import _get_conda_cache, CONFIGS, _load_models
 
 # ---- Global cache dir ----
 ENV_PREFIX = os.environ.get("CONDA_PREFIX")
@@ -48,50 +53,47 @@ class FileDataset(Dataset):
 
     def __getitem__(self, idx):
         file_path = self.file_list[idx]
-        
+
         # Load the file's pickle
-        with open(file_path, 'rb') as file: file_data = pickle.load(file)  # shape: [channels, time]
+        with open(file_path, 'rb') as file:
+            file_data = pickle.load(file)  # shape: [channels, time]
 
+        num_channels = file_data.shape[0]
+        total_samples = file_data.shape[1]
+        seq_len = self.transformer_seq_length
+        samples_per_step = self.bse_samples
+        padded_channels = self.padded_channels
+
+        # Calculate number of epochs (chunks)
+        num_epochs = total_samples // (seq_len * samples_per_step)
+        truncated_samples = num_epochs * seq_len * samples_per_step
+        file_data = file_data[:, :truncated_samples]
+
+        # Reshape to [channels, num_epochs, seq_len, samples_per_step]
         x = torch.tensor(file_data, dtype=torch.float32)
+        x = x.view(num_channels, num_epochs, seq_len, samples_per_step)
 
-        # Reshape into [channels, seq_len, samples_per_step]
-        x = x.view(x.shape[0], -1, self.bse_samples)
+        assert num_channels <= padded_channels, "More channels than padded_channels!"
 
-        actual_channels = x.shape[0]
-        assert actual_channels <= self.padded_channels, "More channels than padded_channels!"
+        # Prepare output tensor [num_epochs, seq_len, padded_channels, samples_per_step]
+        big_padded = torch.zeros(num_epochs, seq_len, padded_channels, samples_per_step, dtype=torch.float32)
+        big_rand_ch_orders = torch.zeros(num_epochs, seq_len, padded_channels)
 
-        total_samps_in_file = x.shape[1]
-        assert total_samps_in_file >= self.transformer_seq_length, "File too short for transformer_seq_length!"
+        # Shuffle ONCE per file for all epochs
+        shuffled_channel_indices = torch.randperm(num_channels)
+        padded_positions = torch.randperm(padded_channels)[:num_channels]
 
-        num_chunks_in_file = total_samps_in_file // self.transformer_seq_length
-        print(f"File {os.path.basename(file_path)}: {actual_channels} channels, {total_samps_in_file} samples, {num_chunks_in_file} chunks")
+        # Fill big_rand_ch_orders for all epochs and time steps
+        ch_index_vec = self.make_ch_index_vec(padded_positions, shuffled_channel_indices)
+        big_rand_ch_orders[:, :, :] = ch_index_vec
 
-        # Prepare output tensor [sequence, padded_channels, latent_dim]
-        padded = torch.zeros(num_chunks_in_file, self.padded_channels, self.bse_samples, dtype=torch.float32)
-        print("Padded shape:", padded.shape)
-
-        # Randomize channel mapping for each time step independently
-        rand_ch_orders = torch.zeros(num_chunks_in_file, self.padded_channels)
-
-        # Shuffle ONCE per entire token sequence, so each BSP token has same channel order
-        shuffled_channel_indices = torch.randperm(actual_channels)
-        padded_positions = torch.randperm(self.padded_channels)[:actual_channels]
-
-        # Assign tokens
-        for t in range(num_chunks_in_file):
-
-            # Assign channel orders to variable (done within FOR loop to ensure it is clear that they all have the same channel order)
-            rand_ch_orders[t, :] = self.make_ch_index_vec(padded_positions, shuffled_channel_indices)
-
-            # Assign data to variable
-            for src_idx, dst_pos in zip(shuffled_channel_indices, padded_positions):
-                padded[t, dst_pos, :] = x[src_idx, t, :]  # use the corresponding time step
-
-        # Unsqueeze a dimension and transpose to be ready for BSE
-        # [seq, padded_channels, FS] --> [seq, FS, padded_channel, 1]
-        out = padded.permute(0, 2, 1).unsqueeze(3)
-
-        return out, file_path, rand_ch_orders
+        # Vectorized assignment for all epochs and time steps
+        # x: [num_channels, num_epochs, seq_len, samples_per_step]
+        # big_padded: [num_epochs, seq_len, padded_channels, samples_per_step]
+        for src_idx, dst_pos in zip(shuffled_channel_indices, padded_positions):
+            big_padded[:, :, dst_pos, :] = x[src_idx, :, :, :]
+        
+        return big_padded, file_path, big_rand_ch_orders
 
 def prepare_ddp_dataloader(dataset: Dataset, batch_size: int, droplast=False, num_workers=0):
 
@@ -187,7 +189,7 @@ def _check_cache_files(codename, keys):
     required_files = [config.get(k) for k in keys if config.get(k)]
     return all(os.path.exists(os.path.join(CACHE_DIR, f)) for f in required_files)
 
-def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
+def run_models(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     """
     Run Brain-State Embedder (BSE) inference.
 
@@ -205,7 +207,7 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
 
     Notes:
         - Produces *_bse outputs like:
-          <out_dir>/<subject_id>/bse/*_bipole_scaled_filtered_data_BSE.pkl
+          <out_dir>/<subject_id>/bse/*_bipole_scaled_filtered_data_PostBSE.pkl
     """
     if out_dir is None:
         out_dir = in_dir
@@ -220,17 +222,6 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     else:
         print(f"Downloading BSE model to {CACHE_DIR} ...")
 
-    bse, _, _, _, _, _ = _load_models(
-        codename=codename,
-        gpu_id='cpu',
-        pretrained=True,
-        load_bse=True,
-        load_discriminator=False,
-        load_bsp=False,
-        load_bsv=False,
-        load_som=False
-    )
-
     # Set up DDP for inference if needed
     world_size = torch.cuda.device_count()
     cuda_available = torch.cuda.is_available()
@@ -243,7 +234,7 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     ctx = mp.get_context('spawn') # necessary to use context if have set_start_method anove?
     children = []
     for i in range(world_size):
-        subproc = ctx.Process(target=bse_main, args=(i, world_size, bse, in_dir, out_dir))
+        subproc = ctx.Process(target=main, args=(i, world_size, codename, in_dir, out_dir))
         children.append(subproc)
         subproc.start()
 
@@ -251,15 +242,36 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
         children[i].join()
 
 # DDP subprocess for BSE (will run on each GPU)
-def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
+def main(gpu_id, world_size, codename, in_dir, out_dir):
 
     # Initialize DDP 
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12345"
     init_process_group(backend="nccl", rank=gpu_id, world_size=world_size, timeout=datetime.timedelta(minutes=999999))
+    
+    bse, disc, bsp, bsv, som, config = _load_models(
+        codename=codename,
+        gpu_id=gpu_id,
+        pretrained=True,
+        load_bse=True,
+        load_discriminator=False,
+        load_bsp=True,
+        load_bsv=True,
+        load_som=False)
+    
+    # Load all models onto GPU and setup DDP
     bse = bse.to(gpu_id)
     bse = DDP(bse, device_ids=[gpu_id])
     bse.eval()
+
+    bsp = bsp.to(gpu_id)
+    bsp = DDP(bsp, device_ids=[gpu_id])
+    bsp.eval()
+
+    bsv = bsv.to(gpu_id)
+    bsv = DDP(bsv, device_ids=[gpu_id])
+    bsv.eval()
+
     with torch.inference_mode():
         
         # Process subjects, distributing work across GPUs
@@ -279,20 +291,23 @@ def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
             dataloader, _ = prepare_ddp_dataloader(dataset, batch_size=1, droplast=False, num_workers=0)
 
             for x, file_path, rand_ch_orders in dataloader: 
-                filename = os.path.splitext(os.path.basename(file_path))[0]
-                outfile = os.path.join(out_bse_dir, f"{filename}_BSE.pkl")
-                print(f"Running BSE on {file_path} -> {outfile}")
+                filename = os.path.splitext(os.path.basename(file_path[0]))[0]
+                outfile = os.path.join(out_bse_dir, f"{filename}_PostBSE.pkl")
+                print(f"Running BSE on {file_path[0]} -> {outfile}")
+
+                # Run one batch at a time to fit on small GPUs
+                for i in range(x.shape[1]):
+                    x_batch = x[:,i, :, :, :].to(gpu_id)  # Move input to the correct GPU
+                    
+                    # Run through the BSE model
+                    z_pseudobatch, mean_pseudobatch, logvar_pseudobatch, mogpreds_pseudobatch, attW = bse(x_batch, reverse=False)
+                
 
 
 
 
-                # TODO: Actual BSE inference code here
 
-
-
-
-
-                print(f"x shape {x.shape}", file_path, rand_ch_orders)
+                print(f"x shape {x.shape}", file_path[0], rand_ch_orders)
 
                 result = f"BSE output of {file_path}"  # dummy inference
 
@@ -301,139 +316,10 @@ def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
 
     destroy_process_group()
 
-def run_bsp(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
-    """
-    Run Brain-State Predictor (BSP) inference.
-
-    Expects files in the format:
-        <dir>/<subject_id>/*_pp_bse.pkl
-
-    Args:
-        in_dir (str): Input directory containing BSE output pickle files.
-        out_dir (str, optional): Output directory to save results.
-                                 If None, defaults to the input directory.
-        codename (str): Model codename to load (default: commongonolek_sheldrake).
-
-    Raises:
-        FileNotFoundError: If the input directory does not exist.
-
-    Notes:
-        - Produces *_bsp outputs like:
-          <dir>/<subject_id>/*_bsp.pkl
-    """
-    if out_dir is None:
-        out_dir = in_dir
-    if not os.path.exists(in_dir):
-        raise FileNotFoundError(f"Input directory does not exist: {in_dir}")
-    os.makedirs(out_dir, exist_ok=True)
-
-    torch.hub._get_torch_home = lambda: CACHE_DIR
-
-    if _check_cache_files(codename, ['bsp_weight_file']):
-        print(f"Using cached BSP model from {CACHE_DIR}")
-    else:
-        print(f"Downloading BSP model to {CACHE_DIR} ...")
-
-    _, _, bsp, _, _, _ = _load_models(
-        codename=codename,
-        gpu_id='cpu',
-        pretrained=True,
-        load_bse=False,
-        load_discriminator=False,
-        load_bsp=True,
-        load_bsv=False,
-        load_som=False
-    )
-
-    subject_dirs = [d for d in glob.glob(os.path.join(in_dir, "*")) if os.path.isdir(d)]
-    print(f"Found {len(subject_dirs)} subject(s): {[os.path.basename(d) for d in subject_dirs]}")
-
-    for subj_path in subject_dirs:
-        subject_id = os.path.basename(subj_path)
-        out_subj_dir = os.path.join(out_dir, subject_id)
-        os.makedirs(out_subj_dir, exist_ok=True)
-
-        bse_files = glob.glob(os.path.join(subj_path, "*_pp_bse.pkl"))
-        print(f"Processing subject '{subject_id}' with {len(bse_files)} file(s).")
-        for infile in bse_files:
-            filename = os.path.splitext(os.path.basename(infile))[0]
-            outfile = os.path.join(out_subj_dir, f"{filename}_bsp.pkl")
-
-            # TODO
-
-            print(f"Running BSP on {infile} -> {outfile}")
-            result = f"BSP output of {infile}"  # dummy inference
-            with open(outfile, 'w') as f:
-                f.write(result)
-
-def run_bsv(in_dir, file_pattern, out_dir=None, codename='commongonolek_sheldrake'):
-    """
-    Run Brain-State Visualizer (BSV) inference.
-
-    Expects files in the format:
-        <dir>/<subject_id>/*_pp_bse.pkl
-
-    Args:
-        in_dir (str): Input directory containing BSE output pickle files.
-        out_dir (str, optional): Output directory to save visualization results.
-                                 If None, defaults to the input directory.
-        codename (str): Model codename to load (default: commongonolek_sheldrake).
-
-    Raises:
-        FileNotFoundError: If the input directory does not exist.
-
-    Notes:
-        - Produces *_bsv outputs like:
-          <dir>/<subject_id>/*_bsv.pkl
-    """
-    if out_dir is None:
-        out_dir = in_dir
-    if not os.path.exists(in_dir):
-        raise FileNotFoundError(f"Input directory does not exist: {in_dir}")
-    os.makedirs(out_dir, exist_ok=True)
-
-    torch.hub._get_torch_home = lambda: CACHE_DIR
-
-    if _check_cache_files(codename, ['bsp_weight_file', 'bsv_weight_file']):
-        print(f"Using cached BSP + BSV models from {CACHE_DIR}")
-    else:
-        print(f"Downloading BSP + BSV models to {CACHE_DIR} ...")
-
-    _, _, bsp, bsv, _, _ = _load_models(
-        codename=codename,
-        gpu_id='cpu',
-        pretrained=True,
-        load_bse=False,
-        load_discriminator=False,
-        load_bsp=True,
-        load_bsv=True,
-        load_som=False
-    )
-
-    subject_dirs = [d for d in glob.glob(os.path.join(in_dir, "*")) if os.path.isdir(d)]
-    print(f"Found {len(subject_dirs)} subject(s): {[os.path.basename(d) for d in subject_dirs]}")
-
-    for subj_path in subject_dirs:
-        subject_id = os.path.basename(subj_path)
-        out_subj_dir = os.path.join(out_dir, subject_id)
-        os.makedirs(out_subj_dir, exist_ok=True)
-
-        in_files = glob.glob(os.path.join(subj_path, file_pattern))
-        print(f"Processing subject '{subject_id}' with {len(in_files)} file(s).")
-        for infile in in_files:
-            filename = os.path.splitext(os.path.basename(infile))[0]
-            outfile = os.path.join(out_subj_dir, f"{filename}_bsv.pkl")
-
-            # TODO
-
-            print(f"Running BSV on {infile} -> {outfile}")
-            result = f"BSV output of {infile}"  # dummy inference
-            with open(outfile, 'w') as f:
-                f.write(result)
 
 
 if __name__ == "__main__":
     # For Development and Debugging
-    run_bse('/home/graham/Downloads/test_raw2')
+    run_models('/home/graham/Downloads/test_raw2')
     # run_bsp('/home/graham/Downloads/test_raw2')
     # run_bsv('/home/graham/Downloads/test_raw2', file_pattern="*_pp_bse.pkl")

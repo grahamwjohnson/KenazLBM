@@ -2,9 +2,16 @@ import torch
 import pickle
 import os
 import requests
-from kenazlbm.BSE import BSE, Discriminator
-from kenazlbm.BSP import BSP, BSV
-from kenazlbm.ToroidalSOM_2 import ToroidalSOM_2
+
+try:
+    from kenazlbm.BSE import BSE, Discriminator
+    from kenazlbm.BSP import BSP, BSV
+    from kenazlbm.ToroidalSOM_2 import ToroidalSOM_2
+except ImportError:
+    # Fallback for local script execution (not as a package)
+    from BSE import BSE, Discriminator
+    from BSP import BSP, BSV
+    from ToroidalSOM_2 import ToroidalSOM_2
 
 
 dependencies = ['torch', 'numpy']

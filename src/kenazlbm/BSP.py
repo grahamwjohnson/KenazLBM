@@ -4,7 +4,11 @@ import torch.nn.functional as F
 from torchinfo import summary
 
 # Local imports
-from .Transformer import ModelArgs, Transformer, RMSNorm
+try:
+    from .Transformer import ModelArgs, Transformer, RMSNorm
+except ImportError:
+    # Fallback for running as a script (not as a package)
+    from Transformer import ModelArgs, Transformer, RMSNorm
 
 class BSV(nn.Module):
     def __init__(self, gpu_id, bsv_dims, **kwargs): 

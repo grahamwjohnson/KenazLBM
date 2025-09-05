@@ -6,7 +6,11 @@ from torchinfo import summary
 import torch.distributions as dist
 
 # Local imports
-from .Transformer import ModelArgs, Transformer, RMSNorm
+try:
+    from .Transformer import ModelArgs, Transformer, RMSNorm
+except ImportError:
+    # Fallback for running as a script (not as a package)
+    from Transformer import ModelArgs, Transformer, RMSNorm
 
 '''
 @author: grahamwjohnson
