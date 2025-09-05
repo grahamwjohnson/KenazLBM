@@ -249,10 +249,10 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     Run Brain-State Embedder (BSE) inference.
 
     Expects files in the format:
-        <dir>/<subject_id>/*_pp.pkl
+        <in_dir>/<subject_id>/preprocessed_epoched_data/*_bipole_scaled_filtered_data.pkl
 
     Args:
-        in_dir (str): Input directory containing preprocessed pickle files.
+        in_dir (str): Input directory containing preprocessed and epoched pickle files.
         out_dir (str, optional): Output directory to save results.
                                  If None, defaults to the input directory.
         codename (str): Model codename to load (default: commongonolek_sheldrake).
@@ -262,7 +262,7 @@ def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
 
     Notes:
         - Produces *_bse outputs like:
-          <dir>/<subject_id>/*_bse.pkl
+          <out_dir>/<subject_id>/bse/*_bipole_scaled_filtered_data_BSE.pkl
     """
     if out_dir is None:
         out_dir = in_dir
@@ -326,19 +326,18 @@ def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
         # Iterate through subjects and make new dataloader for each
         for subj_path in subject_dirs:
             subject_id = os.path.basename(subj_path)
-            out_subj_dir = os.path.join(out_dir, subject_id)
-            os.makedirs(out_subj_dir, exist_ok=True)
-            pp_files = glob.glob(os.path.join(subj_path, "*_pp.pkl"))
+            in_epoched_dir = os.path.join(subj_path, "preprocessed_epoched_data")
+            out_bse_dir = os.path.join(out_dir, subject_id, "bse")
+            os.makedirs(out_bse_dir, exist_ok=True)
+            pp_files = glob.glob(os.path.join(in_epoched_dir, "*_bipole_scaled_filtered_data.pkl"))
             print(f"Processing subject '{subject_id}' with {len(pp_files)} file(s).")
 
-            # Make Dataset & Dataloader for this subject's directory
-            dataset = FileDataset(pp_files, bse.module)  # use .module to access
+            dataset = FileDataset(pp_files, bse.module)
             dataloader, _ = prepare_ddp_dataloader(dataset, batch_size=1, droplast=False, num_workers=0)
 
             for x, file_path, rand_ch_orders in dataloader: 
-
                 filename = os.path.splitext(os.path.basename(file_path))[0]
-                outfile = os.path.join(out_subj_dir, f"{filename}_bse.pkl")
+                outfile = os.path.join(out_bse_dir, f"{filename}_BSE.pkl")
                 print(f"Running BSE on {file_path} -> {outfile}")
 
 
@@ -348,13 +347,11 @@ def bse_main(gpu_id, world_size, bse, in_dir, out_dir):
 
 
 
-                
-                print(f"x shaope{x.shape}", file_path, rand_ch_orders)
+
+
+                print(f"x shape {x.shape}", file_path, rand_ch_orders)
 
                 result = f"BSE output of {file_path}"  # dummy inference
-
-
-
 
                 with open(outfile, 'w') as f:
                     f.write(result)
@@ -490,3 +487,10 @@ def run_bsv(in_dir, file_pattern, out_dir=None, codename='commongonolek_sheldrak
             result = f"BSV output of {infile}"  # dummy inference
             with open(outfile, 'w') as f:
                 f.write(result)
+
+
+if __name__ == "__main__":
+    # For Development and Debugging
+    run_bse('/home/graham/Downloads/test_raw2')
+    # run_bsp('/home/graham/Downloads/test_raw2')
+    # run_bsv('/home/graham/Downloads/test_raw2', file_pattern="*_pp_bse.pkl")

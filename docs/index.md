@@ -30,13 +30,11 @@ conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/ma
 The 'kenazlbm' package can now be used within the conda 'lbm_env' environment. 
 
 IMPORTANT: File Format Assumptions: 
-
 1) All files are .EDF format
 2) Sampling frequency is multiple of 512 Hz
 3) File name must be formatted as: "<subject_id>_<MMDDYYY>_<HHMMSSSS>" where SSSS is seconds and deciseconds: Example is "Epat27_02182020_17072099"
 
 IMPORTANT: Directory structure assumptions:
-
 ```bash
 parent_dir
     subject_id_0
@@ -101,16 +99,22 @@ parent_dir
     ...
 ```
 
-Troubleshooting: this script is computational intensive and may crash/hang. Can restart the script at various checkpoints using the '--checkpoint' option, where '0' is default and will start preprocessing from start, '1' is after and bipole montage and filtering (i.e. the '...bipole_filtered.pkl' files have already been made, '2' is after equalization scheme has been aquired (i.e. the 'linear_interpolations_by_channel.pkl' file has been made) )
+Troubleshooting: this script is computational intensive and may crash/hang. Can restart the script at various checkpoints using the '--checkpoint' option, where '0' is default and will start preprocessing from start, '1' is after and bipole montage and filtering (i.e. the '...bipole_filtered.pkl' files have already been made), '2' is after equalization scheme has been aquired (i.e. the 'linear_interpolations_by_channel.pkl' file has been made) 
 
+Example preprocessing call to start preprocessing with '...bipole_filtered.pkl' files already made
 ```bash
 kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24 --checkpoint 1
+```
+
+Example preprocessing call to start preprocessing with '...bipole_filtered.pkl' files AND 'metadata/scaling_metadata/linear_interpolations_by_channel.pkl' file already made
+```bash
+kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24 --checkpoint 2
 ```
 
 
 ### Prefetch Pretrained Models
 
-Next we will obtain the pretrained models from Torchhub
+Next we will obtain the pretrained models from Torchhub/Github
 
 ```bash
 kenazlbm prefetch_models
@@ -135,7 +139,11 @@ Note that the 2 self-organizing map (SOM) files are not cached locally
 
 
 
+### Running the BSE
 
+
+
+### Running the BSP
 
 
 

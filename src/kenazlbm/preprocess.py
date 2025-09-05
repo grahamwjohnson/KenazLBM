@@ -769,4 +769,4 @@ def preprocess_directory(in_dir="raw", out_dir=None, eq_hrs=24, checkpoint=0, de
 # For Development and Debugging
 if __name__ == "__main__":
     # preprocess_directory('/home/graham/Downloads/test_raw_inputs')
-    preprocess_directory('/home/graham/Downloads/test_raw2', checkpoint=2)
+    preprocess_directory('/home/graham/Downloads/test_raw2', checkpoint=0)
