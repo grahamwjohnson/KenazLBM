@@ -1,14 +1,15 @@
+# Seperate from conda envirnoment
 sphinx
 sphinx-rtd-theme
 myst-parser
-torchinfo
-pip
-numpy
-scipy
-torch
-scikit-learn
-joblib
-pyedflib
-matplotlib
-datetime
-pandas
+# torchinfo
+# pip
+# numpy
+# scipy
+# torch
+# scikit-learn
+# joblib
+# pyedflib
+# matplotlib
+# datetime
+# pandas

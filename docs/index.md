@@ -23,9 +23,9 @@ conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/ma
 
 
 
-# Model Usage
+# A: Model Usage
 
-## Option 1: Running Command-line Interface with KenazLBM Models
+## A.1: Option 1 - Running Command-line Interface with KenazLBM Models
 
 The 'kenazlbm' package can now be used within the conda 'lbm_env' environment. 
 
@@ -50,14 +50,14 @@ parent_dir
 NOTE: All preprocessing and model runs will be conducted in same directory.
 
 
-### Activate Conda Environment 
+### A.1.1: Activate Conda Environment 
 
 ```bash
 conda activate lbm_env
 ```
 
 
-### Preprocessing
+### A.1.2: Preprocessing
 
 The first step is to preprocess your data. This command will filter the data and histogram equalize it to prepare for input to the BSE. The zero-centered histogram equalization (ZHE) scheme looks at the first 24 hours (default) present in your files (missing data included in time calculation), then applies the calculated equalization scheme to all data. To change the hours used for equalization calculation, pass in a different value for '24' below. Preprocessing may take multiple minutes per file for large EDF files (e.g. 5-10 GB) depending on CPU and RAM resources. 
 
@@ -112,8 +112,15 @@ kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24 --checkpoint 2
 ```
 
 To visualize the preprocessed files, you can use the 'seeg_epoch_explorer.py' which provides a GUI to view .pkl files after preprocessing. 
+![Example of post-equalization timeseries](./img/equalization_example.png)
 
-### Prefetch Pretrained Models
+The equalization histograms are helpful to visualize how the signal was transformed. A histogram for a channel that was used in the equalization calculation should look similar to this:
+![Example of equalization histogram](./img/seeg_gui_example.png)
+
+A histogram for an epoch not used in the time series may look slightly different due to drift in the signal characteristics over time (i.e. these data were later in the data and not used in equalization calculation). This is ok. 
+![Example of equalization histogram](./img/seeg_gui_example_later.png)
+
+### A.1.3: Prefetch Pretrained Models
 
 Next we will obtain the pretrained models from Torchhub/Github
 
@@ -140,15 +147,15 @@ Note that the 2 self-organizing map (SOM) files are not cached locally
 
 
 
-### Running the BSE
+### A.1.4: Running the BSE
 
 
 
-### Running the BSP
+### A.1.5: Running the BSP
 
 
 
-## Option 2: Running KenazLBM Models With Python Scripts
+## A.2: Option 2 - Running KenazLBM Models With Python Scripts
 
 
 
