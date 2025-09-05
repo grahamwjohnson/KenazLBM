@@ -5,5 +5,12 @@ torchinfo
 pip
 numpy
 scipy
+scipy.signal
+torch
 scikit-learn
 joblib
+pyedflib
+matplotlib
+sys
+datetime
+pandas
