@@ -117,7 +117,7 @@ To visualize the preprocessed files, you can use the 'seeg_epoch_explorer.py' wh
 The equalization histograms are helpful to visualize how the signal was transformed. A histogram for a channel that was used in the equalization calculation should look similar to this:
 ![Example of post-equalization timeseries](./img/equalization_example.png)
 
-A histogram for an epoch not used in the time series may look slightly different due to drift in the signal characteristics over time (i.e. these data were later in the data and not used in equalization calculation). This is ok. 
+A histogram for an epoch not used in the equalization calculation may look slightly different due to drift in the signal characteristics over time (i.e. these data were later in the data and not used in equalization calculation). This is ok. 
 ![Example of equalization histogram](./img/seeg_gui_example_later.png)
 
 ### A.1.3: Prefetch Pretrained Models
@@ -128,7 +128,7 @@ Next we will obtain the pretrained models from Torchhub/Github
 kenazlbm prefetch_models
 ```
 
-The BSE, BSP, and BSV pretrained models should now be downloaded and cached locally. To check, you can run the following command:
+The BSE, BSP, and BSV pretrained models should now be downloaded and cached locally in your conda environment directory. To check, you can run the following command:
 
 ```bash
 kenazlbm check_models

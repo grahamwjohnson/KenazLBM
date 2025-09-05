@@ -1,7 +1,7 @@
 # src/kenazlbm/cli.py
 import argparse
 from .preprocess import preprocess_directory
-from .core import run_bse, run_bsp, run_bsv, check_models, prefetch_models, validate_directory_structure
+from .core import run_bse, run_bsp, run_bsv, check_models, prefetch_models
 
 def main(): 
     parser = argparse.ArgumentParser(description="KenazLBM CLI - run inference pipelines")
@@ -31,10 +31,10 @@ def main():
     args = parser.parse_args()
     if args.command == "prefetch_models": prefetch_models(force=args.force)
     elif args.command == "check_models": check_models()
-    elif args.command == "preprocess": validate_directory_structure(args.input, file_pattern="*.edf"); preprocess_directory(args.input, args.eq_hrs, args.checkpoint)
-    elif args.command == "run_bse": validate_directory_structure(args.input); run_bse(args.input)
-    elif args.command == "run_bsp": validate_directory_structure(args.input); run_bsp(args.input)
-    elif args.command == "run_bsv": validate_directory_structure(args.input); run_bsv(args.input)
+    elif args.command == "preprocess": preprocess_directory(args.input, args.eq_hrs, args.checkpoint)
+    elif args.command == "run_bse": run_bse(args.input)
+    elif args.command == "run_bsp": run_bsp(args.input)
+    elif args.command == "run_bsv": run_bsv(args.input)
     else: parser.print_help()
 
 if __name__ == "__main__": main()

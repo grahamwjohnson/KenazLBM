@@ -181,63 +181,6 @@ def check_models(codename='commongonolek_sheldrake'):
             continue
         print(f"{f}: ONLINE (not cached locally)")
 
-def validate_directory_structure(input_root="raw", file_pattern="*.edf"):
-    """
-    Validates files exist under <input_root>/*/<file_pattern> and that filenames
-    start with <subjectID>_MMDDYYYY_HHMMSSdd, with the suffix exactly matching
-    file_pattern (after the date/time part).
-
-    Only files ending with the stem+ext of file_pattern are checked. Other files
-    are ignored.
-
-    Args:
-        input_root (str): Root directory (default "raw")
-        file_pattern (str): Glob pattern for files (e.g., "*.edf", "*_pp_bse.pkl")
-
-    Raises:
-        FileNotFoundError: If no files match the stem+extension.
-        ValueError: If any matching files have invalid names.
-
-    Returns:
-        bool: True if all matching files are valid.
-    """
-    # Separate stem and extension
-    stem, ext = os.path.splitext(file_pattern)
-    if not ext:
-        raise ValueError(f"File pattern must include an extension, got: {file_pattern}")
-
-    # Keep dot for glob
-    glob_pattern = f"*{stem}{ext}"  # e.g., "*_pp.pkl"
-
-    # For regex, remove leading '*' from stem, escape, replace '*' with '.*'
-    stem_regex = re.escape(stem).replace(r"\*", ".*")
-
-    # Regex for prefix: <subjectID>_MMDDYYYY_HHMMSSdd + stem pattern + .ext
-    filename_regex = re.compile(
-        rf"^[A-Za-z0-9]+_\d{{8}}_\d{{8}}{stem_regex}\.{re.escape(ext.lstrip('.'))}$",
-        re.IGNORECASE
-    )
-
-    # Collect all files under <input_root>/* that match glob pattern
-    candidate_files = glob.glob(os.path.join(input_root, "*", glob_pattern))
-
-    if not candidate_files:
-        raise FileNotFoundError(
-            f"ERROR: No files found with pattern '{glob_pattern}' under {input_root}"
-        )
-
-    # Only validate files that match stem+ext
-    invalid_files = [f for f in candidate_files if not filename_regex.match(os.path.basename(f))]
-
-    if invalid_files:
-        print("WARNING: The following files have invalid names (prefix format incorrect):")
-        for f in invalid_files:
-            print("  " + f)
-
-    print(f"Checked {len(candidate_files)} file(s) with pattern '{glob_pattern}'. "
-          f"{len(candidate_files)-len(invalid_files)} valid, {len(invalid_files)} invalid.")
-    return True
-
 def _check_cache_files(codename, keys):
     """Helper: check if given weight files exist in CACHE_DIR."""
     config = CONFIGS.get(codename, {})
