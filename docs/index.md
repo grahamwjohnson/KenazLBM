@@ -1,79 +1,79 @@
 # Kenaz Large Brain-State Model (KenazLBM)
 
-This is the step-by-step guide on how to install and use KenazLBM on raw intracranial EEG data. 
+Welcome to the step-by-step guide for installing and using KenazLBM on raw intracranial EEG data.
 
-Assumptions: This guide is made on OS Ubuntu 22.04 with Nvidia GPUs, cannot guarentee any other compatability. 
+> **Assumptions:**  
+> This guide is written for Ubuntu 22.04 with Nvidia GPUs. Compatibility with other systems is not guaranteed.
 
-This ReadTheDocs is based on the GitHub repository: https://github.com/grahamwjohnson/KenazLBM
+KenazLBM documentation is based on the [GitHub repository](https://github.com/grahamwjohnson/KenazLBM).
 
+---
 
-# Installation
+## Installation
 
-## Conda Install
+### 1. Install Conda
 
-Follow directions at: https://www.anaconda.com/docs/getting-started/anaconda/install to install Anaconda3
+Follow the [Anaconda installation instructions](https://www.anaconda.com/docs/getting-started/anaconda/install) to install Anaconda3.
 
-## KenazLBM Installation
+### 2. Install KenazLBM
 
-After conda is installed, install **KenazLBM** with following line:
+After installing Conda, create the KenazLBM environment:
 
 ```bash
 conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/main/environment.yml
 ```
 
+---
 
+## Model Usage
 
-# A: Model Usage
+### Option 1: Command-Line Interface
 
-## A.1: Option 1 - Running Command-line Interface with KenazLBM Models
-
-The 'kenazlbm' package can now be used within the conda 'lbm_env' environment. 
-
-IMPORTANT: File Format Assumptions: 
-1) All files are .EDF format
-2) Sampling frequency is 512 Hz or is multiple of 512 Hz
-3) File name must be formatted as: 'subjectid_MMDDYYY_HHMMSSSS' where SSSS is seconds and deciseconds: Example is "Epat27_02182020_17072099"
-
-IMPORTANT: Directory structure assumptions:
-```bash
-parent_dir
-    subject_id_0
-        <file0_named_as_above>.EDF
-        <file1_named_as_above>.EDF
-        ...
-    subject_id_1
-        <file0_named_as_above>.EDF
-        <file1_named_as_above>.EDF
-        ...
-```
-    
-NOTE: All preprocessing and model runs will be conducted in same directory.
-
-
-### A.1.1: Activate Conda Environment 
+Activate the Conda environment:
 
 ```bash
 conda activate lbm_env
 ```
 
+#### **File Format Assumptions**
+- All files are `.EDF` format.
+- Sampling frequency is 512 Hz or a multiple of 512 Hz.
+- File names must be formatted as:  
+  `subjectid_MMDDYYYY_HHMMSSSS`  
+  Example: `Epat27_02182020_17072099` (where `SSSS` is seconds and deciseconds)
 
-### A.1.2: Preprocessing
+#### **Directory Structure Assumptions**
+```bash
+parent_dir/
+    subject_id_0/
+        <file0_named_as_above>.EDF
+        <file1_named_as_above>.EDF
+        ...
+    subject_id_1/
+        <file0_named_as_above>.EDF
+        <file1_named_as_above>.EDF
+        ...
+```
+> All preprocessing and model runs will be conducted in the same directory.
 
-The first step is to preprocess your data. This command will filter the data and histogram equalize it to prepare for input to the BSE. The zero-centered histogram equalization (ZHE) scheme looks at the first 24 hours (default) present in your files (missing data included in time calculation), then applies the calculated equalization scheme to all data. To change the hours used for equalization calculation, pass in a different value for '24' below. Preprocessing may take multiple minutes per file for large EDF files (e.g. 5-10 GB) depending on CPU and RAM resources. 
+---
+
+### Step 1: Preprocessing
+
+Preprocess your data (default equalization uses first 24 hours):
 
 ```bash
 kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24
 ```
 
-After preprocessing, directory structure will look as follows:
-
+**After preprocessing, your directory will look like:**
 ```bash
-parent_dir
-    subject_id_0
-        metadata
-            scaling_metadata
-                histo_bin_counts.pkl # Just for reference
-                linear_interpolations_by_channel.pkl # Equalization scheme calculations from X hours of data, then used for all data
+parent_dir/
+    subject_id_0/
+        metadata/
+            scaling_metadata/
+                histo_bin_counts.pkl
+                linear_interpolations_by_channel.pkl
                 normalization_epoch_seconds.pkl
             ...bipolar_montage_names_and_indexes_from_rawEDF.csv # Just for reference
         preprocessed_epoched_data
@@ -99,20 +99,21 @@ parent_dir
     ...
 ```
 
-Troubleshooting: this script is computational intensive and may crash/hang. Can restart the script at various checkpoints using the '--checkpoint' option, where '0' is default and will start preprocessing from start, '1' is after and bipole montage and filtering (i.e. the '...bipole_filtered.pkl' files have already been made), '2' is after equalization scheme has been aquired (i.e. the 'linear_interpolations_by_channel.pkl' file has been made) 
+**Troubleshooting:**  
+This step is computationally intensive and may crash/hang.  
+You can restart at various checkpoints using the `--checkpoint` option:
+- `0`: Start from scratch
+- `1`: Start after bipole montage/filtering (`...bipole_filtered.pkl` files exist)
+- `2`: Start after equalization scheme (`linear_interpolations_by_channel.pkl` exists)
 
-Example preprocessing call to start preprocessing with '...bipole_filtered.pkl' files already made
+**Examples:**
 ```bash
 kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24 --checkpoint 1
-```
-
-Example preprocessing call to start preprocessing with '...bipole_filtered.pkl' files AND 'metadata/scaling_metadata/linear_interpolations_by_channel.pkl' file already made
-```bash
 kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24 --checkpoint 2
 ```
 
-To visualize the preprocessed files, you can use the 'seeg_epoch_explorer.py' which provides a GUI to view .pkl files after preprocessing. 
-![Example of equalization histogram](./img/seeg_gui_example.png)
+**Visualization:**  
+Use `seeg_epoch_explorer.py` to view `.pkl` files after preprocessing.
 
 The equalization histograms are helpful to visualize how the signal was transformed. A histogram for a channel that was used in the equalization calculation should look similar to this:
 ![Example of post-equalization timeseries](./img/equalization_example.png)
@@ -120,9 +121,9 @@ The equalization histograms are helpful to visualize how the signal was transfor
 A histogram for an epoch not used in the equalization calculation may look slightly different due to drift in the signal characteristics over time (i.e. these data were later in the data and not used in equalization calculation). This is ok. 
 ![Example of equalization histogram](./img/seeg_gui_example_later.png)
 
-### A.1.3: Prefetch Pretrained Models
+### Step 2: Prefetch Pretrained Models
 
-Next we will obtain the pretrained models from Torchhub/Github
+Download pretrained models:
 
 ```bash
 kenazlbm prefetch_models
@@ -134,8 +135,8 @@ The BSE, BSP, and BSV pretrained models should now be downloaded and cached loca
 kenazlbm check_models
 ```
 
-The output should look like:
-```bash
+**Expected output:**
+```text
 bse_weights.pth: FOUND (1021.75 MB)
 disc_weights.pth: FOUND (58.57 MB)
 bsp_weights.pth: FOUND (1600.60 MB)
@@ -143,19 +144,28 @@ bsv_weights.pth: FOUND (5.29 MB)
 som_file.pth: ONLINE (not cached locally)
 som_axis_file.pkl: ONLINE (not cached locally)
 ```
-Note that the 2 self-organizing map (SOM) files are not cached locally
+> The two SOM files are not cached locally.
+
+---
+
+### Step 3: Running the BSE
+
+*(Instructions to be added)*
+
+---
+
+### Step 4: Running the BSP
+
+*(Instructions to be added)*
+
+---
+
+### Option 2: Python Scripts
+
+*(Instructions to be added)*
 
 
 
-### A.1.4: Running the BSE
-
-
-
-### A.1.5: Running the BSP
-
-
-
-## A.2: Option 2 - Running KenazLBM Models With Python Scripts
 
 
 
