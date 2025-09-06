@@ -189,7 +189,7 @@ def _check_cache_files(codename, keys):
     required_files = [config.get(k) for k in keys if config.get(k)]
     return all(os.path.exists(os.path.join(CACHE_DIR, f)) for f in required_files)
 
-def run_models(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
+def run_bse_som(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     """
     Run Brain-State Embedder (BSE) inference.
 
@@ -282,43 +282,42 @@ def main(gpu_id, world_size, codename, in_dir, out_dir):
         for subj_path in subject_dirs:
             subject_id = os.path.basename(subj_path)
             in_epoched_dir = os.path.join(subj_path, "preprocessed_epoched_data")
-            out_bse_dir = os.path.join(out_dir, subject_id, "bsev")
-            os.makedirs(out_bse_dir, exist_ok=True)
+            out_bsev_dir = os.path.join(out_dir, subject_id, "bsev")
+            os.makedirs(out_bsev_dir, exist_ok=True)
             pp_files = glob.glob(os.path.join(in_epoched_dir, "*_bipole_scaled_filtered_data.pkl"))
             print(f"Processing subject '{subject_id}' with {len(pp_files)} file(s).")
 
             dataset = FileDataset(pp_files, bse.module)
             dataloader, _ = prepare_ddp_dataloader(dataset, batch_size=1, droplast=False, num_workers=0)
 
-            for x, file_path, rand_ch_orders in dataloader: 
+            for x, file_path, _ in dataloader: 
                 filename = os.path.splitext(os.path.basename(file_path[0]))[0]
-                outfile = os.path.join(out_bse_dir, f"{filename}_PostBSEV.pkl")
-                print(f"Running BSE on {file_path[0]} -> {outfile}")
+                outfile_bsev = os.path.join(out_bsev_dir, f"{filename}_PostBSEV.pkl")
+                print(f"Running BSE on {file_path[0]} -> \n{outfile_bsev}")
 
                 # Run max batch size at a time
                 bsize = bse.module.transformer_encoder.params.max_batch_size
                 num_epochs = x.shape[1]
 
-                bsv_z_all = torch.empty(x.shape[1], bsv.module.dims[-1], device=gpu_id)  # Preallocate BSV output
+                bsev_z_all = torch.empty(x.shape[1], bsv.module.dims[-1], device=gpu_id)  # Preallocate BSV output
                 for i in range(0, num_epochs, bsize):
                     x_batch = x[0,i:i+bsize, :, :, :].to(gpu_id)  # Move input to the correct GPU
                     
-                    ### BSE Encoder
+                    ### BSE 
                     # Forward pass in stacked batch through BSE encoder
                     z_pseudobatch, _, _, _, _ = bse(x_batch, reverse=False) # No shift if not causal masking
-
-                    ### BSP2E
                     post_bse_z = z_pseudobatch.reshape(-1, bse.module.transformer_seq_length * bse.module.encode_token_samples, bse.module.latent_dim).unsqueeze(1)
+
+                    # BSE2P
                     _, _, post_bse2p_z = bsp.module.bse2p(post_bse_z)
 
-                    ### BSV Encoder
-                    _, _, _, bsv_z = bsv(post_bse2p_z)
-
-                    bsv_z_all[i:i+bsize, :] = bsv_z.squeeze(1)  
+                    ### BSV 
+                    _, _, _, bsev_z = bsv(post_bse2p_z)
+                    bsev_z_all[i:i+bsize, :] = bsev_z.squeeze(1)  
 
                 # Move result to CPU and convert to numpy & save pickle
-                bsv_z_all = bsv_z_all.cpu().numpy()
-                with open(outfile, 'wb') as f: pickle.dump(bsv_z_all, f)
+                bsev_z_all = bsev_z_all.cpu().numpy()
+                with open(outfile_bsev, 'wb') as f: pickle.dump(bsev_z_all, f)
 
     destroy_process_group()
 
@@ -327,6 +326,6 @@ if __name__ == "__main__":
     prefetch_models()
     check_models()
     # For Development and Debugging
-    run_models('/home/graham/Downloads/test_raw2')
+    run_bse_som('/home/graham/Downloads/test_raw2')
     # run_bsp('/home/graham/Downloads/test_raw2')
     # run_bsv('/home/graham/Downloads/test_raw2', file_pattern="*_pp_bse.pkl")

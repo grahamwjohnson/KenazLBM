@@ -1,7 +1,7 @@
 # src/kenazlbm/cli.py
 import argparse
 from .preprocess import preprocess_directory
-from .core import run_models, check_models, prefetch_models
+from .core import run_bse_som, check_models, prefetch_models
 
 def main(): 
     parser = argparse.ArgumentParser(description="KenazLBM CLI - run inference pipelines")
@@ -19,14 +19,14 @@ def main():
     parser_pre.add_argument("--eq_hrs", type=str, default=None, help="Optional time to use for equalization calculations (default: 24 hours)")
     parser_pre.add_argument("--checkpoint", type=str, default=0, help="Optional checkpoint to restart preprocessing from (default: 0, start from beginning; 1, after montage and filtering; 2, after equalization calculations)")
 
-    parser_bse = subparsers.add_parser("run_models", help="Run BSE inference followed by BSP and BSV inference")
+    parser_bse = subparsers.add_parser("run_bse_som", help="Run BSE inference followed by BSP and BSV inference")
     parser_bse.add_argument("--input", type=str, required=True, help="Input directory formatted as: <dir>/<subject_id>/preprocessed_epoched_data/*_bipole_scaled_filtered_data.pkl")
 
     args = parser.parse_args()
     if args.command == "prefetch_models": prefetch_models(force=args.force)
     elif args.command == "check_models": check_models()
     elif args.command == "preprocess": preprocess_directory(args.input, args.eq_hrs, args.checkpoint)
-    elif args.command == "run_models": run_models(args.input)
+    elif args.command == "run_bse_som": run_bse_som(args.input)
     else: parser.print_help()
 
 if __name__ == "__main__": main()
