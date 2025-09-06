@@ -290,10 +290,11 @@ def main(gpu_id, world_size, codename, in_dir, out_dir):
             dataset = FileDataset(pp_files, bse.module)
             dataloader, _ = prepare_ddp_dataloader(dataset, batch_size=1, droplast=False, num_workers=0)
 
+            count = 0
             for x, file_path, _ in dataloader: 
                 filename = os.path.splitext(os.path.basename(file_path[0]))[0]
                 outfile_bsev = os.path.join(out_bsev_dir, f"{filename}_PostBSEV.pkl")
-                print(f"Running BSE on {file_path[0]} -> \n{outfile_bsev}")
+                print(f"[GPU{gpu_id}: {count}/{len(dataloader)}]:\n{file_path[0]} -> \n{outfile_bsev}")
 
                 # Run max batch size at a time
                 bsize = bse.module.transformer_encoder.params.max_batch_size
@@ -318,6 +319,8 @@ def main(gpu_id, world_size, codename, in_dir, out_dir):
                 # Move result to CPU and convert to numpy & save pickle
                 bsev_z_all = bsev_z_all.cpu().numpy()
                 with open(outfile_bsev, 'wb') as f: pickle.dump(bsev_z_all, f)
+            
+                count += 1
 
     destroy_process_group()
 
