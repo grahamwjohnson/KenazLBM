@@ -1,0 +1,20 @@
+Type,Pat ID,Date (MM:DD:YYYY),Onset String (HH:MM:SS),Offset String (HH:MM:SS),Seizure Type (FAS; FIAS; FBTC; Non-electrographic; Subclinical; Unknown)
+Seizure,Spat27,01:28:2020,15:34:06,15:36:31,FIAS
+Seizure,Spat27,01:29:2020,03:59:27,04:00:55,Focal unknown awareness
+Seizure,Spat27,01:29:2020,None,None,Non-electrographic
+Seizure,Spat27,01:29:2020,08:43:58,08:45:19,FIAS
+Seizure,Spat27,01:29:2020,11:19:14,11:21:12,FIAS
+Seizure,Spat27,01:29:2020,17:35:05,17:37:15,FBTC
+Seizure,Spat27,01:30:2020,01:01:24,01:03:32,Focal unknown awareness
+Seizure,Spat27,01:30:2020,04:56:08,04:58:00,FBTC
+Seizure,Spat42,06:17:2021,07:45:20,07:46:15,FAS
+Seizure,Spat42,06:17:2021,18:11:22,18:12:40,FAS
+Seizure,Spat42,06:18:2021,06:24:27,06:25:24,Subclinical
+Seizure,Spat42,06:19:2021,09:56:00,09:56:11,FAS
+Seizure,Spat42,06:19:2021,13:44:26,13:44:47,FAS
+Seizure,Spat42,06:19:2021,19:13:48,19:15:47,FAS
+Seizure,Spat42,06:20:2021,21:34:48,21:37:15,FAS
+Seizure,Spat42,06:21:2021,None,None,Non-electrographic
+Seizure,Spat42,06:21:2021,16:26:31,16:26:58,FAS
+Seizure,Spat42,06:21:2021,19:40:21,19:41:00,FAS
+Seizure,Spat42,06:22:2021,16:31:10,16:31:38,FAS

@@ -8,6 +8,15 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.distributed import init_process_group, destroy_process_group, barrier
 import datetime
 import pickle
+import numpy as np
+import pandas as pd
+import sys
+import matplotlib
+import matplotlib.cm as cm
+import matplotlib.pylab as pl
+import matplotlib.patches as patches
+from scipy.ndimage import gaussian_filter
+import seaborn as sns
 
 try:
     from .hubconfig import _get_conda_cache, CONFIGS, _load_models
@@ -189,7 +198,7 @@ def _check_cache_files(codename, keys):
     required_files = [config.get(k) for k in keys if config.get(k)]
     return all(os.path.exists(os.path.join(CACHE_DIR, f)) for f in required_files)
 
-def run_bse_som(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
+def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     """
     Run Brain-State Embedder (BSE) inference.
 
@@ -234,7 +243,7 @@ def run_bse_som(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     ctx = mp.get_context('spawn') # necessary to use context if have set_start_method anove?
     children = []
     for i in range(world_size):
-        subproc = ctx.Process(target=main, args=(i, world_size, codename, in_dir, out_dir))
+        subproc = ctx.Process(target=bse_subprocess, args=(i, world_size, codename, in_dir, out_dir))
         children.append(subproc)
         subproc.start()
 
@@ -242,7 +251,7 @@ def run_bse_som(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
         children[i].join()
 
 # DDP subprocess for BSE (will run on each GPU)
-def main(gpu_id, world_size, codename, in_dir, out_dir):
+def bse_subprocess(gpu_id, world_size, codename, in_dir, out_dir):
 
     # Initialize DDP 
     os.environ["MASTER_ADDR"] = "localhost"
@@ -304,15 +313,14 @@ def main(gpu_id, world_size, codename, in_dir, out_dir):
                 for i in range(0, num_epochs, bsize):
                     x_batch = x[0,i:i+bsize, :, :, :].to(gpu_id)  # Move input to the correct GPU
                     
-                    ### BSE 
-                    # Forward pass in stacked batch through BSE encoder
+                    # BSE 
                     z_pseudobatch, _, _, _, _ = bse(x_batch, reverse=False) # No shift if not causal masking
                     post_bse_z = z_pseudobatch.reshape(-1, bse.module.transformer_seq_length * bse.module.encode_token_samples, bse.module.latent_dim).unsqueeze(1)
 
                     # BSE2P
                     _, _, post_bse2p_z = bsp.module.bse2p(post_bse_z)
 
-                    ### BSV 
+                    # BSV 
                     _, _, _, bsev_z = bsv(post_bse2p_z)
                     bsev_z_all[i:i+bsize, :] = bsev_z.squeeze(1)  
 
@@ -324,11 +332,599 @@ def main(gpu_id, world_size, codename, in_dir, out_dir):
 
     destroy_process_group()
 
+def get_pat_seiz_datetimes(
+    pat_id, 
+    atd_file, 
+    FBTC_bool=True, 
+    FIAS_bool=True, 
+    FAS_to_FIAS_bool=True,
+    FAS_bool=True, 
+    subclinical_bool=False, 
+    focal_unknown_bool=True,
+    unknown_bool=True, 
+    non_electro_bool=False,
+    artifact_bool=False,
+    stim_fas_bool=False,
+    stim_fias_bool=False,
+    **kwargs
+    ):
+
+    failure_count = 0
+    for i in range(5):
+        try:
+            atd_df = pd.read_csv(atd_file, sep=',', header='infer')
+            pat_seizure_bool = (atd_df['Pat ID'] == pat_id) & (atd_df['Type'] == "Seizure")
+            pat_seizurebool_AND_desiredTypes = pat_seizure_bool
+            
+            # Look for each seizure type individually & delete if not desired
+            # seiz_type_list = ['FBTC', 'FIAS', 'FAS_to_FIAS', 'FAS', 'Subclinical', 'Focal, unknown awareness', 'Unknown', 'Non-electrographic']
+            seiz_type_list = ['FBTC', 'FIAS', 'FAS_to_FIAS', 'FAS', 'Subclinical', 'Focal unknown awareness', 'Unknown', 'Non-electrographic', 'Artifact', 'Stim-FAS', 'Stim-FIAS']
+            delete_seiz_type_bool_list = [FBTC_bool, FIAS_bool, FAS_to_FIAS_bool, FAS_bool, subclinical_bool, focal_unknown_bool, unknown_bool, non_electro_bool, artifact_bool, stim_fas_bool, stim_fias_bool]
+            for i in range(0,len(seiz_type_list)):
+                if delete_seiz_type_bool_list[i]==False:
+                    find_str = seiz_type_list[i]
+                    curr_bool = pat_seizure_bool & (atd_df.loc[:,'Seizure Type (FAS; FIAS; FBTC; Non-electrographic; Subclinical; Unknown)'] == find_str)
+                    pat_seizurebool_AND_desiredTypes[curr_bool] = False
+
+            df_subset = atd_df.loc[pat_seizurebool_AND_desiredTypes, ['Type','Seizure Type (FAS; FIAS; FBTC; Non-electrographic; Subclinical; Unknown)', 'Date (MM:DD:YYYY)', 'Onset String (HH:MM:SS)', 'Offset String (HH:MM:SS)']]
+            
+            pat_seiz_startdate_str = df_subset.loc[:,'Date (MM:DD:YYYY)'].astype(str).values.tolist() 
+            pat_seiz_starttime_str = df_subset.loc[:,'Onset String (HH:MM:SS)'].astype(str).values.tolist()
+            pat_seiz_stoptime_str = df_subset.loc[:,'Offset String (HH:MM:SS)'].astype(str).values.tolist()
+            pat_seiz_types_str = df_subset.loc[:,'Seizure Type (FAS; FIAS; FBTC; Non-electrographic; Subclinical; Unknown)'].astype(str).values.tolist()
+
+            # Skip any lines that have nan/none or unknown time entries
+            delete_list_A = [i for i, val in enumerate(pat_seiz_starttime_str) if (val=='nan' or val=='Unknown' or val=='None')]
+            delete_list_B = [i for i, val in enumerate(pat_seiz_stoptime_str) if (val=='nan' or val=='Unknown' or val=='None')]
+            delete_list = list(set(delete_list_A + delete_list_B))
+            delete_list.sort()
+            if len(delete_list) > 0:
+                print(f"WARNING: deleting {len(delete_list)} seizure(s) out of {len(pat_seiz_startdate_str)} due to 'nan'/'none'/'Unknown' in master time sheet")
+                print(f"Delete list is: {delete_list}")
+                [pat_seiz_startdate_str.pop(del_idx) for del_idx in reversed(delete_list)]
+                [pat_seiz_starttime_str.pop(del_idx) for del_idx in reversed(delete_list)]
+                [pat_seiz_stoptime_str.pop(del_idx) for del_idx in reversed(delete_list)]
+                [pat_seiz_types_str.pop(del_idx) for del_idx in reversed(delete_list)]
+
+            # Initialize datetimes
+            pat_seiz_start_datetimes = [0]*len(pat_seiz_starttime_str)
+            pat_seiz_stop_datetimes = [0]*len(pat_seiz_stoptime_str)
+
+            for i in range(0,len(pat_seiz_startdate_str)):
+                sD_splits = pat_seiz_startdate_str[i].split(':')
+                sT_splits = pat_seiz_starttime_str[i].split(':')
+                start_time = datetime.time(
+                                    int(sT_splits[0]),
+                                    int(sT_splits[1]),
+                                    int(sT_splits[2]))
+                pat_seiz_start_datetimes[i] = datetime.datetime(int(sD_splits[2]), # Year
+                                                    int(sD_splits[0]), # Month
+                                                    int(sD_splits[1]), # Day
+                                                    int(sT_splits[0]), # Hour
+                                                    int(sT_splits[1]), # Minute
+                                                    int(sT_splits[2])) # Second
+                
+                sTstop_splits = pat_seiz_stoptime_str[i].split(':')
+                stop_time = datetime.time(
+                                    int(sTstop_splits[0]),
+                                    int(sTstop_splits[1]),
+                                    int(sTstop_splits[2]))
+
+                if stop_time > start_time: # if within same day (i.e. the TIME advances, no date included), assign same date to datetime, otherwise assign next day
+                    pat_seiz_stop_datetimes[i] = datetime.datetime.combine(pat_seiz_start_datetimes[i], stop_time)
+                else: 
+                    pat_seiz_stop_datetimes[i] = datetime.datetime.combine(pat_seiz_start_datetimes[i] + datetime.timedelta(days=1), stop_time)
+
+            return pat_seiz_start_datetimes, pat_seiz_stop_datetimes, pat_seiz_types_str
+
+        except Exception as e:
+            failure_count += 1
+            print(f"[Attempt {i+1}] Plotting failed with error: {e}")
+            print(f"Total failures so far: {failure_count}")
+
+def preictal_label(atd_file, plot_preictal_color_sec, pat_ids, start_datetimes_input, stop_datetimes_input):
+    
+    '''
+    PRE_ICTAL:
+    
+    Ictal data point is currently labeled as weight of 0
+    Pre-ictal data point is labeled as a float between 0 and 1, where:
+    - 0 = interictal (far from seizure)
+    - 0.99999 = immediately before seizure (NOTE: ictal is labeled 0)
+
+    '''
+    data_window_preictal_score = np.zeros_like(pat_ids, dtype=float)
+    data_window_ictal_score = np.zeros_like(pat_ids, dtype=float)
+
+    # Generate numerical IDs for each unique patient, and give each datapoint an ID
+    unique_ids = list(set(pat_ids))
+    id_to_index = {id: idx for idx, id in enumerate(unique_ids)}  # Create mapping dictionary
+    pat_idxs = [id_to_index[id] for id in pat_ids]
+
+    # Initialzie all patient pre-ictal s
+    num_ids = len(unique_ids)
+    pat_seiz_start_datetimes = [-1] * num_ids
+    pat_seiz_stop_datetimes = [-1] * num_ids
+    pat_seiz_types_str = [-1] * num_ids
+
+    # Iterate through unique pats and get all seizure info 
+    for i in range(len(unique_ids)):
+        id_curr = unique_ids[i]
+        idx_curr = id_to_index[id_curr]
+        pat_seiz_start_datetimes[i], pat_seiz_stop_datetimes[i], pat_seiz_types_str[i] = get_pat_seiz_datetimes(id_curr, atd_file) 
+
+    # Iterate through every data window and get pre-ictal labels
+    for i in range(len(pat_idxs)):
+
+        print(f"Getting Pre-Ictal Weighting for Data Windows: {i}/{len(pat_idxs)}     ", end='\r')
+
+        data_window_start = start_datetimes_input[i]
+        data_window_stop = stop_datetimes_input[i]
+        
+        # PRE-ICTAL LABELING
+
+        seiz_starts_curr, seiz_stops_curr, seiz_types_curr = pat_seiz_start_datetimes[pat_idxs[i]], pat_seiz_stop_datetimes[pat_idxs[i]], pat_seiz_types_str[pat_idxs[i]]
+
+        for j in range(len(seiz_starts_curr)):
+            seiz_start = seiz_starts_curr[j]
+            seiz_stop = seiz_stops_curr[j]
+            buffered_preictal_start = seiz_start - datetime.timedelta(seconds=plot_preictal_color_sec)
+
+            # Compute time difference from seizure start (0 at start of preictal buffer, increasing as closer to seizure)
+            # NOTE: IMPORTANT: Assign value of 0 for in seizure
+
+            # Case where end of data window is in pre-ictal buffer (ignore start of preictal window)
+            if data_window_stop < seiz_start and data_window_stop > buffered_preictal_start:
+                dist_to_seizure = (seiz_start - data_window_stop).total_seconds()
+                new_score = 1.0 - (dist_to_seizure / plot_preictal_color_sec)
+                data_window_preictal_score[i] = max(data_window_preictal_score[i], new_score)  
+                # Keep max score, and do NOT break because could find higher value
+
+            # Case where end of the window is in the seizure
+            elif data_window_stop > seiz_start and data_window_stop < seiz_stop:
+                data_window_preictal_score[i] = 0 
+                data_window_ictal_score[i] = 1
+                break # Want to exclude seizures
+
+            # Case where start of the window overlaps the preictal/ictal buffer, but end is past seizure end
+            elif data_window_start > buffered_preictal_start and data_window_start < seiz_stop:
+                data_window_preictal_score[i] = 0
+                data_window_ictal_score[i] = 1
+                break # Want to exclude seizures
+
+    # Ensure values remain between 0 and 1
+    return np.clip(data_window_preictal_score, 0, 1), np.clip(data_window_ictal_score, 0, 1), 
+
+def filename_to_datetimes(list_file_names):
+        start_datetimes = [datetime.datetime.min]*len(list_file_names)
+        stop_datetimes = [datetime.datetime.min]*len(list_file_names)
+        for i in range(0, len(list_file_names)):
+            splits = list_file_names[i].split('_')
+            aD = splits[1]
+            aT = splits[2]
+            start_datetimes[i] = datetime.datetime(int(aD[4:8]), int(aD[0:2]), int(aD[2:4]), int(aT[0:2]), int(aT[2:4]), int(aT[4:6]), int(int(aT[6:8])*1e4))
+            bD = splits[4]
+            bT = splits[5]
+            stop_datetimes[i] = datetime.datetime(int(bD[4:8]), int(bD[0:2]), int(bD[2:4]), int(bT[0:2]), int(bT[2:4]), int(bT[4:6]), int(int(bT[6:8])*1e4))
+        return start_datetimes, stop_datetimes
+
+def plot_hex_grid(ax, data, title, cmap_str='viridis', vmin=None, vmax=None):
+    ax.set_aspect('equal', adjustable='box')
+    ax.axis('off')  # Remove axes
+
+    cmap = matplotlib.colormaps[cmap_str]
+    norm = pl.Normalize(vmin=vmin if vmin is not None else np.min(data), vmax=vmax if vmax is not None else np.max(data))
+
+    # Hexagon geometry
+    radius = 1.0  # circumradius
+    width = 2 * radius  # not used directly but good to note
+    height = np.sqrt(3) * radius  # vertical distance from flat to flat
+
+    rows, cols = data.shape
+
+    for i in range(rows):
+        for j in range(cols):
+            x = j * 1.5 * radius
+            y = i * height + (j % 2) * (height / 2)
+
+            # Scale the raw data to the range [0, 1] based on vmin and vmax
+            face_color = cmap(norm(data[i, j]))
+
+            hexagon = patches.RegularPolygon((x, y), numVertices=6, radius=radius,
+                                            orientation=np.radians(30),
+                                            facecolor=face_color, alpha=0.7,
+                                            edgecolor=face_color, linewidth=0.1)
+            ax.add_patch(hexagon)
+
+    x_extent = cols * 1.5 * radius
+    y_extent = rows * height
+    ax.set_xlim(-radius, x_extent + radius)
+    ax.set_ylim(-radius, y_extent + height)
+    ax.set_title(title)
+
+    norm = pl.Normalize(vmin=vmin, vmax=vmax)  # Use vmin and vmax directly
+    sm = pl.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    pl.colorbar(sm, ax=ax, label=title) # Add a label to the colorbar for clarity
+
+
+def rewindow_data(
+    z: np.ndarray,
+    file_windowsecs: int,
+    file_stridesecs: int,
+    rewin_windowsecs: int,
+    rewin_strideseconds: int,
+    reduction: str = 'mean',  # 'sum', 'mean', 'cat'
+) -> np.ndarray:
+    """
+    Rewindows sequential latent samples (z) from an original
+    windowing scheme to a new windowing scheme.
+
+    Args:
+        z: Array of windowed latent samples or MoG preds,
+           shape [original_windows, latent_dim] or [original_windows, num_components].
+        file_windowsecs: Window duration in seconds of the original data.
+        file_stridesecs: Stride in seconds of the original data.
+        rewin_windowsecs: Desired window duration in seconds.
+        rewin_strideseconds: Desired stride in seconds.
+        reduction: How to combine original windows inside the new window.
+                   Options: 'mean', 'sum', 'cat'.
+
+    Returns:
+        rewin_z: Rewindowed array, shape:
+                 - [new_windows, latent_dim] if reduction is 'mean' or 'sum'
+                 - [new_windows, latent_dim * factor] if reduction is 'cat'
+    """
+
+    original_windows, latent_dim = z.shape
+
+    # Validate divisibility
+    if rewin_windowsecs % file_windowsecs != 0:
+        raise ValueError("rewin_windowsecs must be a multiple of file_windowsecs.")
+    if rewin_strideseconds % file_stridesecs != 0:
+        raise ValueError("rewin_strideseconds must be a multiple of file_stridesecs.")
+    if rewin_windowsecs < file_stridesecs and rewin_strideseconds > file_stridesecs:
+        raise ValueError("Invalid window/stride combination.")
+
+    # Start indices of new windows
+    new_window_starts_in_original_samples = np.arange(
+        0, original_windows * file_stridesecs, rewin_strideseconds
+    )
+    new_window_starts_in_original_windows = new_window_starts_in_original_samples // file_stridesecs
+
+    # Number of new windows
+    new_windows = (original_windows * file_stridesecs - (rewin_windowsecs - rewin_strideseconds)) // rewin_strideseconds
+    new_windows = max(0, new_windows)
+
+    # Allocate result (cat requires dynamic handling)
+    if reduction in ['mean', 'sum']:
+        rewin_z = np.zeros((new_windows, latent_dim), dtype=z.dtype)
+    elif reduction == 'cat':
+        factor = rewin_windowsecs // file_stridesecs
+        rewin_z = np.zeros((new_windows, latent_dim * factor), dtype=z.dtype)
+    else:
+        raise ValueError(f"Invalid reduction: {reduction}")
+
+    # Fill
+    for i in range(new_windows):
+        start = new_window_starts_in_original_windows[i]
+        end = start + (rewin_windowsecs // file_stridesecs)
+        end = min(end, original_windows)
+
+        valid = z[start:end]
+
+        if valid.size == 0:
+            continue
+
+        if reduction == 'mean':
+            rewin_z[i, :] = np.mean(valid, axis=0)
+        elif reduction == 'sum':
+            rewin_z[i, :] = np.sum(valid, axis=0)
+        elif reduction == 'cat':
+            # pad if shorter than expected
+            padded = np.zeros((rewin_windowsecs // file_stridesecs, latent_dim), dtype=z.dtype)
+            padded[:valid.shape[0]] = valid
+            rewin_z[i, :] = padded.reshape(-1)
+
+    return rewin_z
+
+
+def toroidal_kohonen_subfunction_pytorch(
+    atd_file,
+    pat_ids_list,
+    latent_z_windowed,
+    start_datetimes_epoch,
+    stop_datetimes_epoch,
+    win_sec,
+    stride_sec,
+    savedir,
+    som,
+    plot_preictal_color_sec,
+    sigma_plot=1,
+    hits_log_view=True,
+    umat_log_view=True,
+    preictal_overlay_thresh = 0.5,
+    sleep_overlay_thresh = 0.5,
+    smooth_map_factor = 1,
+    **kwargs):
+    """
+    Toroidal SOM with hexagonal grid for latent space analysis.
+    """
+
+    if not os.path.exists(savedir): os.makedirs(savedir)
+
+    # Check for NaNs in files
+    delete_file_idxs = []
+    for i in range(latent_z_windowed.shape[0]):
+        if np.sum(np.isnan(latent_z_windowed[i,:,:])) > 0:
+            delete_file_idxs = delete_file_idxs + [i]
+            print(f"WARNING: Deleted file {start_datetimes_epoch[i]} that had NaNs")
+
+    # Delete entries/files in lists where there is NaN in latent space for that file
+    latent_z_windowed = np.delete(latent_z_windowed, delete_file_idxs, axis=0)
+    start_datetimes_epoch = [item for i, item in enumerate(start_datetimes_epoch) if i not in delete_file_idxs]
+    stop_datetimes_epoch = [item for i, item in enumerate(stop_datetimes_epoch) if i not in delete_file_idxs]
+    pat_ids_list = [item for i, item in enumerate(pat_ids_list) if i not in delete_file_idxs]
+
+    # Flatten data into [miniepoch, dim] to feed into Kohonen, original data is [file, seq_miniepoch_in_file, latent_dim]
+    latent_z_input = np.concatenate(latent_z_windowed, axis=0)
+    pat_ids_input = [item for item in pat_ids_list for _ in range(latent_z_windowed[0].shape[0])]
+    start_datetimes_input = [item + datetime.timedelta(seconds=stride_sec * i) for item in start_datetimes_epoch for i in range(latent_z_windowed[0].shape[0])]
+    stop_datetimes_input = [item + datetime.timedelta(seconds=stride_sec * i) + datetime.timedelta(seconds=win_sec) for item in start_datetimes_epoch for i in range(latent_z_windowed[0].shape[0])]
+
+
+    # PLOT PREPARATION
+
+    # Get preictal weights and sleep stage for each data point
+    # Pre-Ictal: 0 = interictal, 0.99999 = immediately before seizure (NOTE: ictal is labeled 0)
+    # Sleep: -1 = unlabeled, 0 = wake, 1 = N1, 2 = N2, 3 = N3, 4 = REM
+    preictal_float_input, ictal_float_input = preictal_label(atd_file, plot_preictal_color_sec, pat_ids_input, start_datetimes_input, stop_datetimes_input)
+    print("\nFinished gathering pre-ictal and sleep labels on all data windows")
+
+    # Get model weights and coordinates
+    weights = som.get_weights()
+    hex_coords = som.get_hex_coords()
+    grid_size = som.grid_size
+    rows, cols = grid_size
+    som_batch_size = som.batch_size
+    som_device = som.device
+
+    # Initialize maps
+    preictal_sums = np.zeros(grid_size)
+    ictal_sums = np.zeros(grid_size)
+    hit_map = np.zeros(grid_size)
+    neuron_patient_dict = {}
+
+    # SOM Inference on all data in batches
+    for i in range(0, len(latent_z_input), som_batch_size):
+
+        print(f"Running all data windows through trained Kohonen Map: {i}/{int(len(latent_z_input))}                  ", end='\r')
+
+        batch = latent_z_input[i:i + som_batch_size]
+        batch_patients = pat_ids_input[i:i + som_batch_size]
+        batch_preictal_labels = preictal_float_input[i:i + som_batch_size]
+        batch_ictal_labels = ictal_float_input[i:i + som_batch_size]
+
+        batch = torch.tensor(batch, dtype=torch.float32, device=som_device)
+        bmu_rows, bmu_cols = som.find_bmu(batch)
+        bmu_rows, bmu_cols = bmu_rows.cpu().numpy(), bmu_cols.cpu().numpy()
+
+        # Update hit map
+        np.add.at(hit_map, (bmu_rows, bmu_cols), 1)
+
+        # Process pre-ictal and sleep data
+        for j, (bmu_row, bmu_col) in enumerate(zip(bmu_rows, bmu_cols)):
+            # Accumulate preictal scores
+            preictal_sums[bmu_row, bmu_col] += batch_preictal_labels[j]
+            ictal_sums[bmu_row, bmu_col] += batch_ictal_labels[j]
+
+        # Track unique patients per node
+        for j, (bmu_row, bmu_col) in enumerate(zip(bmu_rows, bmu_cols)):
+            if (bmu_row, bmu_col) not in neuron_patient_dict:
+                neuron_patient_dict[(bmu_row, bmu_col)] = set()
+            neuron_patient_dict[(bmu_row, bmu_col)].add(batch_patients[j])
+
+    print("\nFinished Kohonen inference on all data")
+
+    # If hits want to be viewed logarithmically
+    if hits_log_view:
+        epsilon = np.finfo(float).eps
+        hit_map = np.log(hit_map + epsilon)
+
+    # Normalize preictal & ictal sums
+    if np.max(preictal_sums) > np.min(preictal_sums):
+        preictal_sums = (preictal_sums - np.min(preictal_sums)) / (np.max(preictal_sums) - np.min(preictal_sums))
+
+    if np.max(ictal_sums) > np.min(ictal_sums):
+        ictal_sums = (ictal_sums - np.min(ictal_sums)) / (np.max(ictal_sums) - np.min(ictal_sums))
+
+    # Compute U-Matrix (using Euclidean distances on toroidal grid) for hexagonal grid
+    u_matrix_hex = np.zeros(grid_size)
+    for i in range(rows):
+        for j in range(cols):
+            current_weight = weights[i, j]
+            neighbor_distances = []
+
+            # Define hexagonal neighbors with toroidal wrapping
+            if i % 2 == 0:
+                neighbor_offsets = [(0, 1), (0, -1), (-1, 0), (-1, -1), (1, 0), (1, -1)]
+            else:
+                neighbor_offsets = [(0, 1), (0, -1), (-1, 1), (-1, 0), (1, 1), (1, 0)]
+
+            for offset_row, offset_col in neighbor_offsets:
+                ni = (i + offset_row + rows) % rows
+                nj = (j + offset_col + cols) % cols
+                neighbor_weight = weights[ni, nj]
+                distance = np.linalg.norm(current_weight - neighbor_weight)
+                neighbor_distances.append(distance)
+
+            u_matrix_hex[i, j] = np.mean(neighbor_distances) if neighbor_distances else 0
+
+     # If U-Matrix is decided to be viewed logarithmically
+    if umat_log_view:
+        epsilon = np.finfo(float).eps
+        u_matrix_hex = np.log(u_matrix_hex + epsilon)   
+
+    # Apply smoothing
+    preictal_sums_smoothed = gaussian_filter(preictal_sums, sigma=smooth_map_factor)
+    if np.max(preictal_sums_smoothed) > np.min(preictal_sums_smoothed):
+        preictal_sums_smoothed = (preictal_sums_smoothed - np.min(preictal_sums_smoothed)) / (np.max(preictal_sums_smoothed) - np.min(preictal_sums_smoothed))
+
+    # 2D OVERLAY: U-Matrix + Pre-Ictal
+    
+    # Create new figure for U-Matrix + Pre-Ictal Density Overlay
+    fig_overlay, ax_overlay = pl.subplots(figsize=(10, 10))
+
+    # Clip preictal_sums_smoothed at lower threshold 0.5
+    overlay_preictal = np.clip(preictal_sums_smoothed, 0.0, 1.0)
+    # overlay_preictal = np.clip(rescale_preictal_smoothed, 0.0, 1.0)
+    # overlay_preictal = np.clip(preictal_sums, 0.0, 1.0)
+
+    # Plot U-Matrix base
+    plot_hex_grid(ax_overlay, u_matrix_hex, "U-Matrix with Pre-Ictal Overlay", cmap_str='bone_r', vmin=np.min(u_matrix_hex), vmax=np.max(u_matrix_hex) if np.max(u_matrix_hex) > 0 else 1)
+
+    # Overlay Pre-Ictal smoothed density (alpha=0.6)
+    # We'll replot on top with a semi-transparent flare colormap
+    rows, cols = overlay_preictal.shape
+    radius = 1.0
+    height = np.sqrt(3) * radius
+    cmap_overlay = sns.color_palette("flare", as_cmap=True)
+    norm_overlay = pl.Normalize(vmin=preictal_overlay_thresh, vmax=1.0)
+
+    for i in range(rows):
+        for j in range(cols):
+            x = j * 1.5 * radius
+            y = i * height + (j % 2) * (height / 2)
+            face_color = cmap_overlay(norm_overlay(overlay_preictal[i, j]))
+            hexagon = patches.RegularPolygon((x, y), numVertices=6, radius=radius,
+                                            orientation=np.radians(30),
+                                            facecolor=face_color, alpha=0.7,
+                                            edgecolor=None, linewidth=0)
+            if overlay_preictal[i, j] >= preictal_overlay_thresh:
+                ax_overlay.add_patch(hexagon)
+
+    # Optional: add a colorbar for the overlay
+    sm_overlay = pl.cm.ScalarMappable(cmap=cmap_overlay, norm=norm_overlay)
+    sm_overlay.set_array([])
+    pl.colorbar(sm_overlay, ax=ax_overlay, label="Pre-Ictal Density (Clipped & Smoothed)")
+
+    # Save overlay figure
+    savename_overlay = savedir + f"/UMatrix_PreIctalOverlay_ToroidalSOM.jpg"
+    pl.savefig(savename_overlay, dpi=600)
+    
+    print(f"SOM Finished Plotting\n\n")
+
+
+def run_som(in_dir, out_dir=None, codename='commongonolek_sheldrake', atd_file=None, plot_preictal_color_sec=4*60*60,
+            file_windowseconds=1, file_strideseconds=1):
+    """
+    Run Self-Organizing Map (SOM) inference.
+
+    Expects files in the format:
+        <in_dir>/<subject_id>/bsev/*_bipole_scaled_filtered_data_PostBSEV.pkl
+
+    Args:
+        in_dir (str): Input directory containing BSEV pickle files.
+        out_dir (str, optional): Output directory to save results.
+                                 If None, defaults to the input directory.
+        codename (str): Model codename to load (default: commongonolek_sheldrake).
+
+    Raises:
+        FileNotFoundError: If the input directory does not exist.
+
+    Notes:
+        - Produces *_som outputs like:
+          <out_dir>/<subject_id>/som/*_bipole_scaled_filtered_data_PostBSEV_SOM.pkl
+    """
+    if out_dir is None:
+        out_dir = in_dir
+    if not os.path.exists(in_dir):
+        raise FileNotFoundError(f"Input directory does not exist: {in_dir}")
+    os.makedirs(out_dir, exist_ok=True)
+
+    if atd_file is None:
+        print("WARNING: No master time sheet provided, so pre-ictal labels are used from default atd_file.csv in src/kenazlbm")
+        atd_file = os.path.join(os.path.dirname(__file__), 'atd_file.csv')
+        if not os.path.exists(atd_file):
+            raise FileNotFoundError(f"Default atd_file.csv not found in {atd_file}. Please provide a valid atd_file.")
+
+    torch.hub._get_torch_home = lambda: CACHE_DIR
+
+    if _check_cache_files(codename, ['som_file', 'som_axis_file']):
+        print(f"Using cached SOM model from {CACHE_DIR}")
+    else:
+        print(f"Downloading SOM model to {CACHE_DIR} ...")
+
+    _, _, _, _, som, config = _load_models(
+        codename=codename,
+        gpu_id='cpu',
+        pretrained=True,
+        load_bse=False,
+        load_discriminator=False,
+        load_bsp=False,
+        load_bsv=False,
+        load_som=True)
+
+    # Process subjects sequentially on CPU
+    subject_dirs = [d for d in glob.glob(os.path.join(in_dir, "*")) if os.path.isdir(d)]
+    print(f"Found {len(subject_dirs)} subject(s): {[os.path.basename(d) for d in subject_dirs]}")
+    for subj_path in subject_dirs:
+        subject_id = os.path.basename(subj_path)
+        in_bsev_dir = os.path.join(subj_path, "bsev")
+        out_som_dir = os.path.join(out_dir, subject_id, "som")
+        os.makedirs(out_som_dir, exist_ok=True)
+
+        # Load BSEV files
+        data_filepaths = glob.glob(os.path.join(in_bsev_dir, "*_bipole_scaled_filtered_data_PostBSEV.pkl"))
+        print(f"\nProcessing subject '{subject_id}' with {len(data_filepaths)} BSEV file(s).")
+
+        # Gather metadata for files
+        build_start_datetimes, build_stop_datetimes = filename_to_datetimes([s.split("/")[-1] for s in data_filepaths]) # Get start/stop datetimes
+        build_pat_ids_list = [s.split("/")[-1].split("_")[0] for s in data_filepaths] # Get the build pat_ids
+        
+        # Load a sentinal file to get data params and intitialzie variables
+        with open(data_filepaths[0], "rb") as f: latent_data_fromfile = pickle.load(f)
+        print(f"Original shape of data: {latent_data_fromfile.shape}")
+        rewin_z_sentinel = rewindow_data( latent_data_fromfile, file_windowseconds, file_strideseconds, config['som_rewin_seconds'], config['som_stride_seconds'], reduction=config['reduction'])
+        print(f"Rewindowed shape of data: {rewin_z_sentinel.shape}")
+        print(f"REDUCTION: {config['reduction']}")
+
+        # Inialize all_file variables based on sentinel variables
+        w_z_allfiles = np.zeros([len(data_filepaths), rewin_z_sentinel.shape[0], rewin_z_sentinel.shape[1]], dtype=np.float32)
+        print("Loading all latent data from files")
+        for i in range(len(data_filepaths)):
+            sys.stdout.write(f"\rLoading Pickles: {i}/{len(data_filepaths)}        ") 
+            sys.stdout.flush() 
+            try:
+                with open(data_filepaths[i], "rb") as f: latent_data_fromfile = pickle.load(f)
+                w_z_allfiles[i, :, :] = rewindow_data( latent_data_fromfile, file_windowseconds, file_strideseconds, config['som_rewin_seconds'], config['som_stride_seconds'], reduction=config['reduction'])
+            except: print(f"Error loading {data_filepaths[i]}")
+
+        # Print broad statistics about dataset
+        print(f"Dataset general statistics:\n"
+            f"Mean {np.mean(w_z_allfiles):.2f}\n"
+            f"Std {np.std(w_z_allfiles):.2f}\n"
+            f"Max {np.max(w_z_allfiles):.2f}\n"
+            f"Min {np.min(w_z_allfiles):.2f}"
+            )
+            
+        toroidal_kohonen_subfunction_pytorch(
+            atd_file = atd_file,
+            pat_ids_list=build_pat_ids_list,
+            latent_z_windowed=w_z_allfiles,
+            start_datetimes_epoch=build_start_datetimes,  
+            stop_datetimes_epoch=build_stop_datetimes,
+            win_sec=config['som_rewin_seconds'], 
+            stride_sec=config['som_stride_seconds'], 
+            savedir=out_som_dir,
+            subsample_file_factor=1, # Use all files
+            som=som,
+            plot_preictal_color_sec = plot_preictal_color_sec)
+    
 
 if __name__ == "__main__":
     prefetch_models()
     check_models()
     # For Development and Debugging
-    run_bse_som('/home/graham/Downloads/test_raw2')
-    # run_bsp('/home/graham/Downloads/test_raw2')
-    # run_bsv('/home/graham/Downloads/test_raw2', file_pattern="*_pp_bse.pkl")
+    run_bse('/home/graham/Downloads/test_raw2')
+    # run_som('/home/graham/Downloads/test_raw2')

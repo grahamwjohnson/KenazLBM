@@ -40,7 +40,7 @@ conda activate lbm_env
 - Sampling frequency is 512 Hz or a multiple of 512 Hz.
 - File names must be formatted as:  
   `subjectid_MMDDYYYY_HHMMSSSS`  
-  Example: `Epat27_02182020_17072099` (where `SSSS` is seconds and deciseconds)
+  Example: `Epat27_02182020_17072099` (where `SSSS` is seconds and centiseconds)
 
 #### **Directory Structure Assumptions**
 ```bash
@@ -159,8 +159,7 @@ kenazlbm run_models --input '/path/to/parent_dir'
 
 This will look for the **'parent_dir/subject_id/preprocessed_epoched_data'** directory and run all .pkl files in the directory through the following:
 
---> BSE --> BSV             # These outputs will be saved in 'bsev' directory
---> BSE --> BSP --> BSV     # These outputs will be saved in 'bsepv' directory
+Preprocessed .pkl files --> BSE --> BSV            # These outputs will be saved in 'bsev' directory
 
 ---
 
