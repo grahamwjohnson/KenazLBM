@@ -16,8 +16,8 @@ def main():
 
     parser_pre = subparsers.add_parser("preprocess", help="Preprocess input files: <dir>/<subject_id>/*.[edf|EDF]")
     parser_pre.add_argument("--input", type=str, required=True, help="Input directory formatted as: <dir>/<subject_id>/*.[edf|EDF]")
-    parser_pre.add_argument("--eq_hrs", type=str, required=False, default=24, help="Optional time to use for equalization calculations (default: 24 hours)")
-    parser_pre.add_argument("--checkpoint", type=str, required=False, default=0, help="Optional checkpoint to restart preprocessing from (default: 0, start from beginning; 1, after montage and filtering; 2, after equalization calculations)")
+    parser_pre.add_argument("--eq_hrs", type=int, required=False, default=24, help="Optional time to use for equalization calculations (default: 24 hours)")
+    parser_pre.add_argument("--checkpoint", type=int, required=False, default=0, help="Optional checkpoint to restart preprocessing from (default: 0, start from beginning; 1, after montage and filtering; 2, after equalization calculations)")
 
     parser_bse = subparsers.add_parser("run_bse", help="Run BSE inference followed by BSP and BSV inference")
     parser_bse.add_argument("--input", type=str, required=True, help="Input directory formatted as: <dir>/<subject_id>/preprocessed_epoched_data/*_bipole_scaled_filtered_data.pkl")
