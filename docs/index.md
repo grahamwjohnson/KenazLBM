@@ -169,6 +169,10 @@ Now that you have outputs from the BSV, you can project them onto the SOM with t
 NOTE: You must provide the path to your own atd_file.csv (or the example file will be used). The format is as follows, must use exact header labels.
 ![Example of atd csv](./img/atd_csv.jpg)
 
+```bash
+kenazlbm run_som --input '/path/to/parent_dir' --atd_file '/path/to/atd_file.csv'
+```
+
 
 ---
 
