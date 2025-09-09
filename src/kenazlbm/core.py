@@ -812,7 +812,7 @@ def toroidal_kohonen_subfunction_pytorch(
     savename_overlay = savedir + f"/UMatrix_PreIctalOverlay_ToroidalSOM.jpg"
     pl.savefig(savename_overlay, dpi=600)
     
-    print(f"SOM Finished Plotting\n\n")
+    print(f"SOM Finished Plotting\n")
 
 
 def run_som(in_dir, out_dir=None, codename='commongonolek_sheldrake', atd_file=None, plot_preictal_color_sec=4*60*60,
@@ -926,5 +926,5 @@ if __name__ == "__main__":
     prefetch_models()
     check_models()
     # For Development and Debugging
-    run_bse('/home/graham/Downloads/test_raw2')
-    # run_som('/home/graham/Downloads/test_raw2')
+    # run_bse('/home/graham/Downloads/test_raw2')
+    run_som('/home/graham/Downloads/test_raw2')

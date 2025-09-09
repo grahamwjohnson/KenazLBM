@@ -148,12 +148,12 @@ som_axis_file.pkl: ONLINE (not cached locally)
 
 ---
 
-### Step 3: Running the BSE
+### Step 3: Running the Brain-State Embedder (BSE)
 
 To run the preprocessed data through the models, we can now call the following:
 
 ```bash
-kenazlbm run_models --input '/path/to/parent_dir'
+kenazlbm run_bse --input '/path/to/parent_dir'
 ```
 ---
 
@@ -161,11 +161,20 @@ This will look for the **'parent_dir/subject_id/preprocessed_epoched_data'** dir
 
 Preprocessed .pkl files --> BSE --> BSV            # These outputs will be saved in 'bsev' directory
 
+
+### Step 4: Running the Self-Organizing Map (SOM) aka Kohonen Map
+
+Now that you have outputs from the BSV, you can project them onto the SOM with the following command. All pre-ictal periods from 4 hours before any seisure will be colored if a atd_file.csv is provided with timestamps fro seizures. 
+
+NOTE: You must provide the path to your own atd_file.csv (or the example file will be used). The format is as follows, must use exact header labels.
+![Example of atd csv](./img/atd_csv.jpg)
+
+
 ---
 
 ### Option 2: Python Scripts
 
-To have more granular control of the model usage, or to get intermediate outputs like full size 1024-dimensional embeddings from the BSE, then you can interact within the models in a python script as follows:
+To have more granular control of the model usage, get intermediate outputs like full size 1024-dimensional embeddings from the BSE, or forecast future emebeddings with the BSP, you can interact with the models directly in a python script as follows:
 
 
 

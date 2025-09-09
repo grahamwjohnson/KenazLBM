@@ -24,6 +24,7 @@ def main():
 
     parser_bse = subparsers.add_parser("run_som", help="Run SOM on the output of BSE inference")
     parser_bse.add_argument("--input", type=str, required=True, help="Input directory formatted as: <dir>/<subject_id>/bsev/*_bipole_scaled_filtered_data_PostBSEV.pkl")
+    parser_bse.add_argument("--atd_file", type=str, required=False, default=None, help="Path to CSV file containing seizure time information (optional)")
 
 
     args = parser.parse_args()
@@ -31,7 +32,7 @@ def main():
     elif args.command == "check_models": check_models()
     elif args.command == "preprocess": preprocess_directory(args.input, args.eq_hrs, args.checkpoint)
     elif args.command == "run_bse": run_bse(args.input)
-    elif args.command == "run_som": run_som(args.input)
+    elif args.command == "run_som": run_som(args.input, atd_file=args.atd_file)
     else: parser.print_help()
 
 if __name__ == "__main__": main()
