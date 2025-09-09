@@ -100,7 +100,7 @@ parent_dir/
 ```
 
 **Troubleshooting:**  
-This step is computationally intensive and may crash/hang.  
+The preprocessing step is computationally intensive and may crash/hang.  
 You can restart at various checkpoints using the `--checkpoint` option:
 - `0`: Start from scratch
 - `1`: Start after bipole montage/filtering (`...bipole_filtered.pkl` files exist)
@@ -112,7 +112,7 @@ kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24 --checkpoint 1
 kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24 --checkpoint 2
 ```
 
-**Visualization:**  
+**Visualizations:**  
 Use `seeg_epoch_explorer.py` to view `.pkl` files after preprocessing.
 ![Example of post-equalization timeseries](./img/seeg_gui_example.png)
 

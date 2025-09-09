@@ -547,7 +547,6 @@ def plot_hex_grid(ax, data, title, cmap_str='viridis', vmin=None, vmax=None):
     sm.set_array([])
     pl.colorbar(sm, ax=ax, label=title) # Add a label to the colorbar for clarity
 
-
 def rewindow_data(
     z: np.ndarray,
     file_windowsecs: int,
@@ -627,7 +626,6 @@ def rewindow_data(
             rewin_z[i, :] = padded.reshape(-1)
 
     return rewin_z
-
 
 def toroidal_kohonen_subfunction_pytorch(
     atd_file,
@@ -814,8 +812,7 @@ def toroidal_kohonen_subfunction_pytorch(
     
     print(f"SOM Finished Plotting\n")
 
-
-def run_som(in_dir, out_dir=None, codename='commongonolek_sheldrake', atd_file=None, plot_preictal_color_sec=4*60*60,
+def run_som(in_dir, atd_file=None, out_dir=None, codename='commongonolek_sheldrake', plot_preictal_color_sec=4*60*60,
             file_windowseconds=1, file_strideseconds=1):
     """
     Run Self-Organizing Map (SOM) inference.
@@ -921,7 +918,6 @@ def run_som(in_dir, out_dir=None, codename='commongonolek_sheldrake', atd_file=N
             som=som,
             plot_preictal_color_sec = plot_preictal_color_sec)
     
-
 if __name__ == "__main__":
     prefetch_models()
     check_models()

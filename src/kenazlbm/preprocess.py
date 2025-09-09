@@ -17,7 +17,6 @@ import matplotlib.gridspec as gridspec
 # Use a relative path to ch_to_ignore.txt in the same directory as this script
 CH_TO_IGNORE_PATH = os.path.join(os.path.dirname(__file__), 'ch_to_ignore.txt')
 
-
 def create_bip_mont(channels: list[str], pat_id: str, ch_names_to_ignore: list, save_dir: str):
     bip_names = []
     mont_idxs = []
@@ -628,7 +627,7 @@ def employ_norm(
         gc.collect()
         print("Garbage collected")
 
-def preprocess_directory(in_dir="raw", out_dir=None, eq_hrs=24, checkpoint=0, desired_samp_freq=512):
+def preprocess_directory(in_dir, eq_hrs=24, checkpoint=0, out_dir=None, desired_samp_freq=512):
     """
     Preprocess all .EDF/.edf files in the raw/*/* structure
     and save them to preprocessed/*/*_pp.pkl per subject directory.
