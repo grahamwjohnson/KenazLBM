@@ -15,3 +15,10 @@ source_suffix = {
     ".rst": "restructuredtext",
     ".md": "markdown",
 }
+
+# Add the _static folder
+html_static_path = ['_static']
+
+# Add custom CSS file
+def setup(app):
+    app.add_css_file('custom.css')
