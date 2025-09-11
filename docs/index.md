@@ -29,11 +29,12 @@ conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/ma
 
 ---
 
-## Model Usage
+# Model Usage
 
-### Option 1: Command-Line Interface
+## Option 1: Command-Line Interface
 
-Activate the Conda environment:
+
+### Step 1: Activate the Conda Environment:
 
 ```bash
 conda activate lbm_env
@@ -58,11 +59,13 @@ parent_dir/
         <file1_named_as_above>.EDF
         ...
 ```
-> All preprocessing and model runs will be conducted in the same directory.
 
+```{important}
+All preprocessing and model runs will be conducted in the same directory.
+```
 ---
 
-### Step 1: Preprocessing
+### Step 2: Preprocessing
 
 Preprocess your data (default equalization uses first 24 hours):
 
@@ -126,7 +129,7 @@ The equalization histograms are helpful to visualize how the signal was transfor
 A histogram for an epoch not used in the equalization calculation may look slightly different due to drift in the signal characteristics over time (i.e. these data were later in the data and not used in equalization calculation). This is ok. 
 ![Example of equalization histogram](./img/equalization_example_later.png)
 
-### Step 2: Prefetch Pretrained Models
+### Step 3: Prefetch Pretrained Models
 
 Download pretrained models:
 
@@ -153,7 +156,7 @@ som_axis_file.pkl: ONLINE (not cached locally)
 
 ---
 
-### Step 3: Running the Brain-State Embedder (BSE)
+### Step 4: Running the Brain-State Embedder (BSE)
 
 To run the preprocessed data through the models, we can now call the following:
 
@@ -167,7 +170,7 @@ This will look for the **'parent_dir/subject_id/preprocessed_epoched_data'** dir
 Preprocessed .pkl files --> BSE --> BSV            # These outputs will be saved in 'bsev' directory
 
 
-### Step 4: Running the Self-Organizing Map (SOM) aka Kohonen Map
+### Step 5: Running the Self-Organizing Map (SOM) aka Kohonen Map
 
 Now that you have outputs from the BSV, you can project them onto the SOM with the following command. All pre-ictal periods from 4 hours before any seisure will be colored if a atd_file.csv is provided with timestamps fro seizures. 
 
@@ -175,15 +178,15 @@ Now that you have outputs from the BSV, you can project them onto the SOM with t
 kenazlbm run_som --input '/path/to/parent_dir' --atd_file '/path/to/atd_file.csv'
 ```
 
-
+```{important}
 NOTE: You must provide the path to your own atd_file.csv (or the example file will be used). The format is as follows, must use exact header labels.
 ![Example of atd csv](./img/atd_csv.jpg)
-
+```
 
 
 ---
 
-### Option 2: Python Scripts
+## Option 2: Python Scripts
 
 To have more granular control of the model usage, get intermediate outputs like full size 1024-dimensional embeddings from the BSE, or forecast future emebeddings with the BSP, you can interact with the models directly in a python script as follows:
 
