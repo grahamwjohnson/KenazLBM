@@ -229,6 +229,29 @@ bsp.eval()
 bsv = bsv.to(gpu_id)
 bsv.eval()
 
+# Now create a dataloader that gives x as [batch, num_epochs_in_file, 512, 256, 1]]
+for x in dataloader: 
+
+    # Run max batch size at a time
+    bsize = bse.module.transformer_encoder.params.max_batch_size
+    num_epochs = x.shape[1]
+
+    bsev_z_all = torch.empty(x.shape[1], bsv.module.dims[-1], device=gpu_id)  # Preallocate BSV output
+    for i in range(0, num_epochs, bsize):
+        x_batch = x[0,i:i+bsize, :, :, :].to(gpu_id)  # Move input to the correct GPU
+        
+        # BSE 
+        z_pseudobatch, _, _, _, _ = bse(x_batch, reverse=False) # No shift if not causal masking
+        post_bse_z = z_pseudobatch.reshape(-1, bse.module.transformer_seq_length * bse.module.encode_token_samples, bse.module.latent_dim).unsqueeze(1)
+
+        # BSE2P
+        _, _, post_bse2p_z = bsp.module.bse2p(post_bse_z)
+
+        # BSV 
+        _, _, _, bsev_z = bsv(post_bse2p_z)
+        bsev_z_all[i:i+bsize, :] = bsev_z.squeeze(1)  
+
+
 ```
 
 
