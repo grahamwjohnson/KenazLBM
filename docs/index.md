@@ -16,9 +16,8 @@ Graham W. Johnson MD PhD
 :maxdepth: 3
 :caption: Sections
 
-install/installation.md
-usage/cli.md
-usage/python.md
+install/index.md
+usage/index.md
 ```
 
 
