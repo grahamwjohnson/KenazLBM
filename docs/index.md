@@ -1,4 +1,4 @@
-<img src="img/Full_Logo.png" alt="Full_Logo" width="50%"/>
+<img src="./img/Full_Logo.jpg" alt="Full_Logo" width="50%"/>
 
 # Kenaz Large Brain-State Model (KenazLBM)
 Welcome to the step-by-step guide for installing and using KenazLBM on raw intracranial EEG data.
