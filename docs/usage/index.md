@@ -4,4 +4,5 @@
 ```{toctree}
 :maxdepth: 2
 
-installation.md
+cli.md
+python.md
