@@ -1,4 +1,6 @@
-## Model Usage Option 1: Command-Line Interface
+# Model Usage
+
+## Option 1: Command-Line Interface
 
 ### Step 1: Organize Directory & Name Files Appropriately 
 
