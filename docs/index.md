@@ -1,4 +1,4 @@
-```{image} ./img/Full_Logo.png
+```{image} img/Full_Logo.jpg
 :alt: Full_Logo
 :width: 50%
 :align: center
