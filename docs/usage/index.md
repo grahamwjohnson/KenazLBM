@@ -1,4 +1,3 @@
-```markdown
 # Model Usage
 
 ```{toctree}
