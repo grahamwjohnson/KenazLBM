@@ -188,6 +188,8 @@ import os
 import torch
 from kenazlbm import _load_models  # make sure kenazlbm is installed
 
+gpu_id = 0 # This example does not use Torch DDP
+
 # ---- Configuration ----
 ENV_PREFIX = os.environ.get("CONDA_PREFIX")
 if ENV_PREFIX is None:
@@ -216,6 +218,16 @@ bse, disc, bsp, bsv, som, config = _load_models(
     load_bsv=True,
     load_som=True
 )
+
+# Load all models onto GPU and set to eval
+bse = bse.to(gpu_id)
+bse.eval()
+
+bsp = bsp.to(gpu_id)
+bsp.eval()
+
+bsv = bsv.to(gpu_id)
+bsv.eval()
 
 ```
 
