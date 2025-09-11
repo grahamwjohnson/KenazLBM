@@ -4,6 +4,8 @@
 :align: center
 ```
 
+<p align="center">***</p>
+
 # Kenaz Large Brain-State Model (KenazLBM)
 Welcome to the step-by-step guide for installing and using KenazLBM on raw intracranial EEG data.
 
@@ -14,6 +16,8 @@ Welcome to the step-by-step guide for installing and using KenazLBM on raw intra
 - KenazLBM documentation is based on this [GitHub repository](https://github.com/grahamwjohnson/KenazLBM)
 
 Graham W. Johnson MD PhD
+
+<p align="center">***</p>
 
 ## Table of Contents
 
