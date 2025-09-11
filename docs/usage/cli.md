@@ -92,13 +92,13 @@ kenazlbm preprocess --input /path/to/parent_dir --eq_hrs 24 --checkpoint 2
 
 **Visualizations:**  
 Use `seeg_epoch_explorer.py` to view `.pkl` files after preprocessing.
-![Example of post-equalization timeseries](./img/seeg_gui_example.png)
+![Example of post-equalization timeseries](../img/seeg_gui_example.png)
 
 The equalization histograms are helpful to visualize how the signal was transformed. A histogram for a channel that was used in the equalization calculation should look similar to this:
-![Example of post-equalization timeseries](./img/equalization_example.png)
+![Example of post-equalization timeseries](../img/equalization_example.png)
 
 A histogram for an epoch not used in the equalization calculation may look slightly different due to drift in the signal characteristics over time (i.e. these data were later in the data and not used in equalization calculation). This is ok. 
-![Example of equalization histogram](./img/equalization_example_later.png)
+![Example of equalization histogram](../img/equalization_example_later.png)
 
 ### Step 4: Prefetch Pretrained Models
 
@@ -151,5 +151,5 @@ kenazlbm run_som --input '/path/to/parent_dir' --atd_file '/path/to/atd_file.csv
 
 ```{important}
 NOTE: You must provide the path to your own atd_file.csv (or the example file will be used). The format is as follows, must use exact header labels.
-![Example of atd csv](./img/atd_csv.jpg)
+![Example of atd csv](../img/atd_csv.jpg)
 ```
