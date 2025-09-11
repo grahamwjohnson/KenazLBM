@@ -33,12 +33,7 @@ conda env create -f https://raw.githubusercontent.com/grahamwjohnson/KenazLBM/ma
 
 ## Option 1: Command-Line Interface
 
-
-### Step 1: Activate the Conda Environment:
-
-```bash
-conda activate lbm_env
-```
+### Step 1: Organize Directory & Name Files Appropriately 
 
 #### **File Format Assumptions**
 - All files are `.EDF` format.
@@ -65,7 +60,14 @@ All preprocessing and model runs will be conducted in the same directory.
 ```
 ---
 
-### Step 2: Preprocessing
+### Step 2: Activate the Conda Environment:
+
+```bash
+conda activate lbm_env
+```
+
+
+### Step 3: Preprocessing
 
 Preprocess your data (default equalization uses first 24 hours):
 
@@ -129,7 +131,7 @@ The equalization histograms are helpful to visualize how the signal was transfor
 A histogram for an epoch not used in the equalization calculation may look slightly different due to drift in the signal characteristics over time (i.e. these data were later in the data and not used in equalization calculation). This is ok. 
 ![Example of equalization histogram](./img/equalization_example_later.png)
 
-### Step 3: Prefetch Pretrained Models
+### Step 4: Prefetch Pretrained Models
 
 Download pretrained models:
 
@@ -156,7 +158,7 @@ som_axis_file.pkl: ONLINE (not cached locally)
 
 ---
 
-### Step 4: Running the Brain-State Embedder (BSE)
+### Step 5: Running the Brain-State Embedder (BSE)
 
 To run the preprocessed data through the models, we can now call the following:
 
@@ -170,7 +172,7 @@ This will look for the **'parent_dir/subject_id/preprocessed_epoched_data'** dir
 Preprocessed .pkl files --> BSE --> BSV            # These outputs will be saved in 'bsev' directory
 
 
-### Step 5: Running the Self-Organizing Map (SOM) aka Kohonen Map
+### Step 6: Running the Self-Organizing Map (SOM) aka Kohonen Map
 
 Now that you have outputs from the BSV, you can project them onto the SOM with the following command. All pre-ictal periods from 4 hours before any seisure will be colored if a atd_file.csv is provided with timestamps fro seizures. 
 
