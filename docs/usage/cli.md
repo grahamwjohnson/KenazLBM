@@ -1,5 +1,7 @@
 ## Option 1: Command-Line Interface
 
+This option will allow you to run the models in a simple and straightforward approach using a structured directory. It will take raw EDF files and preprocess them, run through the brain-state embedder (BSE) and brain-state visualizer (BSV) then through the self-organizing map (SOM/Kohonen) and display the results on the pretrained SOM seen in this preprint: [BioRxiv](https://www.biorxiv.org/content/10.1101/2025.08.10.669538v2). For more granular control over the models, including using of the brain-state predictor (BSP) please see option 2. 
+
 ### Step 1: Organize Directory & Name Files Appropriately 
 
 #### **File Format Assumptions**
