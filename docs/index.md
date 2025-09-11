@@ -6,7 +6,7 @@ Welcome to the step-by-step guide for installing and using KenazLBM on raw intra
 > This guide is written for Ubuntu 22.04 with Nvidia GPUs. Compatibility with other systems is not guaranteed.
 
 
-KenazLBM preprint for citations: https://www.biorxiv.org/content/10.1101/2025.08.10.669538v2
+KenazLBM preprint for citations: [BioRxiv](https://www.biorxiv.org/content/10.1101/2025.08.10.669538v2).
 KenazLBM documentation is based on this [GitHub repository](https://github.com/grahamwjohnson/KenazLBM).
 
 - Graham W. Johnson MD PhD
