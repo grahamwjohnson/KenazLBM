@@ -183,8 +183,41 @@ NOTE: You must provide the path to your own atd_file.csv (or the example file wi
 
 To have more granular control of the model usage, get intermediate outputs like full size 1024-dimensional embeddings from the BSE, or forecast future emebeddings with the BSP, you can interact with the models directly in a python script as follows:
 
+```python
+import os
+import torch
+from kenazlbm import _load_models  # make sure kenazlbm is installed
 
+# ---- Configuration ----
+ENV_PREFIX = os.environ.get("CONDA_PREFIX")
+if ENV_PREFIX is None:
+    raise EnvironmentError("No Conda environment detected. Activate your environment first.")
 
+CACHE_DIR = os.path.join(ENV_PREFIX, "kenazlbm_models")
+codename = 'commongonolek_sheldrake'
+device = 'cpu'  # or 'cuda:0' if GPU available
+# -----------------------
+
+# Ensure cache exists
+if not os.path.exists(CACHE_DIR):
+    raise FileNotFoundError(f"Cache directory {CACHE_DIR} not found. Run prefetch_models() first.")
+
+# Point torch.hub to the cached models
+torch.hub._get_torch_home = lambda: CACHE_DIR
+
+# Load all models from cache
+bse, disc, bsp, bsv, som, config = _load_models(
+    codename=codename,
+    gpu_id=device,
+    pretrained=True,
+    load_bse=True,
+    load_discriminator=True,
+    load_bsp=True,
+    load_bsv=True,
+    load_som=True
+)
+
+```
 
 
 

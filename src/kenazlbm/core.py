@@ -202,23 +202,32 @@ def _check_cache_files(codename, keys):
 
 def run_bse(in_dir, out_dir=None, codename='commongonolek_sheldrake'):
     """
-    Run Brain-State Embedder (BSE) inference.
+    Run Brain-State Embedder (BSE) inference using distributed GPU processing.
 
-    Expects files in the format:
+    This function:
+        - Loads a pretrained BSE model (from cache or downloads it if missing).
+        - Expects preprocessed and epoched EEG/latent data in pickle files.
+        - Spawns one subprocess per available GPU for Distributed Data Parallel (DDP) inference.
+        - Saves BSE outputs for each subject.
+
+    Expected input file structure:
         <in_dir>/<subject_id>/preprocessed_epoched_data/*_bipole_scaled_filtered_data.pkl
 
     Args:
         in_dir (str): Input directory containing preprocessed and epoched pickle files.
         out_dir (str, optional): Output directory to save results.
-                                 If None, defaults to the input directory.
-        codename (str): Model codename to load (default: commongonolek_sheldrake).
+                                 Defaults to `in_dir` if None.
+        codename (str): Model codename to load (default: 'commongonolek_sheldrake').
 
     Raises:
         FileNotFoundError: If the input directory does not exist.
+        Exception: If no CUDA devices are found for GPU inference.
 
     Notes:
         - Produces *_bse outputs like:
-          <out_dir>/<subject_id>/bse/*_bipole_scaled_filtered_data_PostBSEV.pkl
+            <out_dir>/<subject_id>/bse/*_bipole_scaled_filtered_data_PostBSEV.pkl
+        - Automatically uses all available CUDA GPUs with one subprocess per device.
+        - Uses torch.multiprocessing 'spawn' context for safe DDP initialization.
     """
     if out_dir is None:
         out_dir = in_dir
@@ -630,191 +639,6 @@ def rewindow_data(
 
     return rewin_z
 
-# def toroidal_kohonen_subfunction_pytorch(
-#     atd_file,
-#     pat_ids_list,
-#     latent_z_windowed,
-#     start_datetimes_epoch,
-#     stop_datetimes_epoch,
-#     win_sec,
-#     stride_sec,
-#     savedir,
-#     som,
-#     plot_preictal_color_sec,
-#     sigma_plot=1,
-#     hits_log_view=True,
-#     umat_log_view=True,
-#     preictal_overlay_thresh = 0.5,
-#     sleep_overlay_thresh = 0.5,
-#     smooth_map_factor = 1,
-#     **kwargs):
-#     """
-#     Toroidal SOM with hexagonal grid for latent space analysis.
-#     """
-
-#     if not os.path.exists(savedir): os.makedirs(savedir)
-
-#     # Check for NaNs in files
-#     delete_file_idxs = []
-#     for i in range(latent_z_windowed.shape[0]):
-#         if np.sum(np.isnan(latent_z_windowed[i,:,:])) > 0:
-#             delete_file_idxs = delete_file_idxs + [i]
-#             print(f"WARNING: Deleted file {start_datetimes_epoch[i]} that had NaNs")
-
-#     # Delete entries/files in lists where there is NaN in latent space for that file
-#     latent_z_windowed = np.delete(latent_z_windowed, delete_file_idxs, axis=0)
-#     start_datetimes_epoch = [item for i, item in enumerate(start_datetimes_epoch) if i not in delete_file_idxs]
-#     stop_datetimes_epoch = [item for i, item in enumerate(stop_datetimes_epoch) if i not in delete_file_idxs]
-#     pat_ids_list = [item for i, item in enumerate(pat_ids_list) if i not in delete_file_idxs]
-
-#     # Flatten data into [miniepoch, dim] to feed into Kohonen, original data is [file, seq_miniepoch_in_file, latent_dim]
-#     latent_z_input = np.concatenate(latent_z_windowed, axis=0)
-#     pat_ids_input = [item for item in pat_ids_list for _ in range(latent_z_windowed[0].shape[0])]
-#     start_datetimes_input = [item + datetime.timedelta(seconds=stride_sec * i) for item in start_datetimes_epoch for i in range(latent_z_windowed[0].shape[0])]
-#     stop_datetimes_input = [item + datetime.timedelta(seconds=stride_sec * i) + datetime.timedelta(seconds=win_sec) for item in start_datetimes_epoch for i in range(latent_z_windowed[0].shape[0])]
-
-
-#     # PLOT PREPARATION
-
-#     # Get preictal weights and sleep stage for each data point
-#     # Pre-Ictal: 0 = interictal, 0.99999 = immediately before seizure (NOTE: ictal is labeled 0)
-#     # Sleep: -1 = unlabeled, 0 = wake, 1 = N1, 2 = N2, 3 = N3, 4 = REM
-#     preictal_float_input, ictal_float_input = preictal_label(atd_file, plot_preictal_color_sec, pat_ids_input, start_datetimes_input, stop_datetimes_input)
-#     print("\nFinished gathering pre-ictal and sleep labels on all data windows")
-
-#     # Get model weights and coordinates
-#     weights = som.get_weights()
-#     hex_coords = som.get_hex_coords()
-#     grid_size = som.grid_size
-#     rows, cols = grid_size
-#     som_batch_size = som.batch_size
-#     som_device = som.device
-
-#     # Initialize maps
-#     preictal_sums = np.zeros(grid_size)
-#     ictal_sums = np.zeros(grid_size)
-#     hit_map = np.zeros(grid_size)
-#     neuron_patient_dict = {}
-
-#     # SOM Inference on all data in batches
-#     for i in range(0, len(latent_z_input), som_batch_size):
-
-#         print(f"Running all data windows through trained Kohonen Map: {i}/{int(len(latent_z_input))}                  ", end='\r')
-
-#         batch = latent_z_input[i:i + som_batch_size]
-#         batch_patients = pat_ids_input[i:i + som_batch_size]
-#         batch_preictal_labels = preictal_float_input[i:i + som_batch_size]
-#         batch_ictal_labels = ictal_float_input[i:i + som_batch_size]
-
-#         batch = torch.tensor(batch, dtype=torch.float32, device=som_device)
-#         bmu_rows, bmu_cols = som.find_bmu(batch)
-#         bmu_rows, bmu_cols = bmu_rows.cpu().numpy(), bmu_cols.cpu().numpy()
-
-#         # Update hit map
-#         np.add.at(hit_map, (bmu_rows, bmu_cols), 1)
-
-#         # Process pre-ictal and sleep data
-#         for j, (bmu_row, bmu_col) in enumerate(zip(bmu_rows, bmu_cols)):
-#             # Accumulate preictal scores
-#             preictal_sums[bmu_row, bmu_col] += batch_preictal_labels[j]
-#             ictal_sums[bmu_row, bmu_col] += batch_ictal_labels[j]
-
-#         # Track unique patients per node
-#         for j, (bmu_row, bmu_col) in enumerate(zip(bmu_rows, bmu_cols)):
-#             if (bmu_row, bmu_col) not in neuron_patient_dict:
-#                 neuron_patient_dict[(bmu_row, bmu_col)] = set()
-#             neuron_patient_dict[(bmu_row, bmu_col)].add(batch_patients[j])
-
-#     print("\nFinished Kohonen inference on all data")
-
-#     # If hits want to be viewed logarithmically
-#     if hits_log_view:
-#         epsilon = np.finfo(float).eps
-#         hit_map = np.log(hit_map + epsilon)
-
-#     # Normalize preictal & ictal sums
-#     if np.max(preictal_sums) > np.min(preictal_sums):
-#         preictal_sums = (preictal_sums - np.min(preictal_sums)) / (np.max(preictal_sums) - np.min(preictal_sums))
-
-#     if np.max(ictal_sums) > np.min(ictal_sums):
-#         ictal_sums = (ictal_sums - np.min(ictal_sums)) / (np.max(ictal_sums) - np.min(ictal_sums))
-
-#     # Compute U-Matrix (using Euclidean distances on toroidal grid) for hexagonal grid
-#     u_matrix_hex = np.zeros(grid_size)
-#     for i in range(rows):
-#         for j in range(cols):
-#             current_weight = weights[i, j]
-#             neighbor_distances = []
-
-#             # Define hexagonal neighbors with toroidal wrapping
-#             if i % 2 == 0:
-#                 neighbor_offsets = [(0, 1), (0, -1), (-1, 0), (-1, -1), (1, 0), (1, -1)]
-#             else:
-#                 neighbor_offsets = [(0, 1), (0, -1), (-1, 1), (-1, 0), (1, 1), (1, 0)]
-
-#             for offset_row, offset_col in neighbor_offsets:
-#                 ni = (i + offset_row + rows) % rows
-#                 nj = (j + offset_col + cols) % cols
-#                 neighbor_weight = weights[ni, nj]
-#                 distance = np.linalg.norm(current_weight - neighbor_weight)
-#                 neighbor_distances.append(distance)
-
-#             u_matrix_hex[i, j] = np.mean(neighbor_distances) if neighbor_distances else 0
-
-#      # If U-Matrix is decided to be viewed logarithmically
-#     if umat_log_view:
-#         epsilon = np.finfo(float).eps
-#         u_matrix_hex = np.log(u_matrix_hex + epsilon)   
-
-#     # Apply smoothing
-#     preictal_sums_smoothed = gaussian_filter(preictal_sums, sigma=smooth_map_factor)
-#     if np.max(preictal_sums_smoothed) > np.min(preictal_sums_smoothed):
-#         preictal_sums_smoothed = (preictal_sums_smoothed - np.min(preictal_sums_smoothed)) / (np.max(preictal_sums_smoothed) - np.min(preictal_sums_smoothed))
-
-#     # 2D OVERLAY: U-Matrix + Pre-Ictal
-    
-#     # Create new figure for U-Matrix + Pre-Ictal Density Overlay
-#     fig_overlay, ax_overlay = pl.subplots(figsize=(10, 10))
-
-#     # Clip preictal_sums_smoothed at lower threshold 0.5
-#     overlay_preictal = np.clip(preictal_sums_smoothed, 0.0, 1.0)
-#     # overlay_preictal = np.clip(rescale_preictal_smoothed, 0.0, 1.0)
-#     # overlay_preictal = np.clip(preictal_sums, 0.0, 1.0)
-
-#     # Plot U-Matrix base
-#     plot_hex_grid(ax_overlay, u_matrix_hex, "U-Matrix with Pre-Ictal Overlay", cmap_str='bone_r', vmin=np.min(u_matrix_hex), vmax=np.max(u_matrix_hex) if np.max(u_matrix_hex) > 0 else 1)
-
-#     # Overlay Pre-Ictal smoothed density (alpha=0.6)
-#     # We'll replot on top with a semi-transparent flare colormap
-#     rows, cols = overlay_preictal.shape
-#     radius = 1.0
-#     height = np.sqrt(3) * radius
-#     cmap_overlay = sns.color_palette("flare", as_cmap=True)
-#     norm_overlay = pl.Normalize(vmin=preictal_overlay_thresh, vmax=1.0)
-
-#     for i in range(rows):
-#         for j in range(cols):
-#             x = j * 1.5 * radius
-#             y = i * height + (j % 2) * (height / 2)
-#             face_color = cmap_overlay(norm_overlay(overlay_preictal[i, j]))
-#             hexagon = patches.RegularPolygon((x, y), numVertices=6, radius=radius,
-#                                             orientation=np.radians(30),
-#                                             facecolor=face_color, alpha=0.7,
-#                                             edgecolor=None, linewidth=0)
-#             if overlay_preictal[i, j] >= preictal_overlay_thresh:
-#                 ax_overlay.add_patch(hexagon)
-
-#     # Optional: add a colorbar for the overlay
-#     sm_overlay = pl.cm.ScalarMappable(cmap=cmap_overlay, norm=norm_overlay)
-#     sm_overlay.set_array([])
-#     pl.colorbar(sm_overlay, ax=ax_overlay, label="Pre-Ictal Density (Clipped & Smoothed)")
-
-#     # Save overlay figure
-#     savename_overlay = savedir + f"/UMatrix_PreIctalOverlay_ToroidalSOM.jpg"
-#     pl.savefig(savename_overlay, dpi=600)
-    
-#     print(f"SOM Finished Plotting\n")
-
 def toroidal_kohonen_subfunction_pytorch(
     atd_file,
     pat_ids_list,
@@ -835,7 +659,46 @@ def toroidal_kohonen_subfunction_pytorch(
     **kwargs,
 ):
     """
-    Toroidal SOM with hexagonal grid for latent space analysis.
+    Perform toroidal SOM inference and visualization on latent time-series data.
+
+    This function:
+        - Cleans latent data of NaNs and flattens it for SOM processing.
+        - Performs SOM inference to find Best Matching Units (BMUs) per data point.
+        - Computes hit maps, pre-ictal/ictal density maps, and U-Matrix (distance map) on a hexagonal toroidal SOM grid.
+        - Generates 2D overlay plots:
+            * U-Matrix as a base layer.
+            * Time progression overlay for a single patient (cubehelix colormap, opacity scaled by data density, 10–90% clipped).
+            * Pre-ictal overlay on top (flare colormap, alpha fixed at 0.7).
+        - Saves plots to the specified directory.
+
+    Args:
+        atd_file (str): CSV master time sheet for pre-ictal labeling.
+        pat_ids_list (list of str): List of patient IDs corresponding to latent data files.
+        latent_z_windowed (np.ndarray): Windowed latent vectors, shape [files, windows_per_file, latent_dim].
+        start_datetimes_epoch (list of datetime): Start timestamps of each file/window.
+        stop_datetimes_epoch (list of datetime): Stop timestamps of each file/window.
+        win_sec (float): Window duration in seconds.
+        stride_sec (float): Stride duration in seconds.
+        savedir (str): Directory to save SOM outputs and figures.
+        som (object): Pretrained SOM object with `.get_weights()` and `.find_bmu()`.
+        plot_preictal_color_sec (float): Duration (seconds) to define pre-ictal data for overlay.
+        sigma_plot (float, optional): Gaussian smoothing sigma for pre-ictal overlay (default: 1).
+        hits_log_view (bool, optional): Whether to log-scale hit maps (default: True).
+        umat_log_view (bool, optional): Whether to log-scale U-Matrix (default: True).
+        preictal_overlay_thresh (float, optional): Threshold to show pre-ictal overlay (default: 0.5).
+        sleep_overlay_thresh (float, optional): Threshold to show sleep overlay (not implemented in this snippet, default: 0.5).
+        smooth_map_factor (float, optional): Smoothing factor for pre-ictal density map (default: 1).
+        **kwargs: Optional keyword arguments:
+            * plot_patient_id (str): Patient ID for the time progression overlay.
+            * subsample_file_factor (int): Factor to subsample files (default: 1, use all files).
+
+    Notes:
+        - The function produces a single figure per patient showing:
+            1. U-Matrix (bone_r colormap)
+            2. Gist-earth/cubehelix time progression overlay with opacity scaled by node occupancy
+            3. Pre-ictal flare overlay on top
+        - Colorbars are clipped or scaled independently for visualization clarity.
+        - Saved figure filename: "UMatrix_PreIctalOverlay_ToroidalSOM_patient_<patient_id>.jpg"
     """
 
     if not os.path.exists(savedir):
@@ -1137,7 +1000,7 @@ def toroidal_kohonen_subfunction_pytorch(
 
     sm_overlay = pl.cm.ScalarMappable(cmap=cmap_overlay, norm=norm_overlay)
     sm_overlay.set_array([])
-    cbar = pl.colorbar(sm_overlay, ax=ax_overlay, label="Pre-Ictal Density (Clipped & Smoothed)", shrink=0.92, pad=0.05, fontsize=16)
+    cbar = pl.colorbar(sm_overlay, ax=ax_overlay, label="Pre-Ictal Density (Clipped & Smoothed)", shrink=0.92, pad=0.05)
     cbar.ax.yaxis.set_label_position('left')  # move label to the left side
 
     # Save
@@ -1146,27 +1009,43 @@ def toroidal_kohonen_subfunction_pytorch(
 
     print("SOM Finished Plotting\n")
 
-
 def run_som(in_dir, atd_file=None, out_dir=None, codename='commongonolek_sheldrake', plot_preictal_color_sec=4*60*60,
             file_windowseconds=1, file_strideseconds=1):
     """
-    Run Self-Organizing Map (SOM) inference.
+    Run Self-Organizing Map (SOM) inference on BSEV latent data.
 
-    Expects files in the format:
+    This function:
+        - Loads BSEV pickle files for each subject in <in_dir>/<subject_id>/bsev/
+        - Rewindows the latent data according to SOM configuration
+        - Performs inference through a pretrained SOM model
+        - Computes U-Matrix and pre-ictal overlays
+        - Produces figures and saves SOM outputs per subject
+
+    Expected input file format:
         <in_dir>/<subject_id>/bsev/*_bipole_scaled_filtered_data_PostBSEV.pkl
 
     Args:
-        in_dir (str): Input directory containing BSEV pickle files.
-        out_dir (str, optional): Output directory to save results.
-                                 If None, defaults to the input directory.
-        codename (str): Model codename to load (default: commongonolek_sheldrake).
+        in_dir (str): Directory containing subject subfolders with BSEV pickle files.
+        atd_file (str, optional): Master time sheet CSV for pre-ictal labels.
+                                  If None, defaults to 'atd_file.csv' in the source directory.
+        out_dir (str, optional): Output directory to save SOM results and plots.
+                                 Defaults to the input directory if None.
+        codename (str): Pretrained SOM model codename (default: 'commongonolek_sheldrake').
+        plot_preictal_color_sec (int): Time window (seconds) to color pre-ictal data in plots (default: 4 hours).
+        file_windowseconds (int): Window length in seconds for rewindowing raw latent data (default: 1s).
+        file_strideseconds (int): Stride in seconds for rewindowing raw latent data (default: 1s).
 
     Raises:
-        FileNotFoundError: If the input directory does not exist.
+        FileNotFoundError: If input directory does not exist or default atd_file.csv is missing.
 
     Notes:
-        - Produces *_som outputs like:
-          <out_dir>/<subject_id>/som/*_bipole_scaled_filtered_data_PostBSEV_SOM.pkl
+        - Rewindowing is applied per SOM config (som_rewin_seconds, som_stride_seconds, reduction).
+        - SOM outputs are saved in:
+            <out_dir>/<subject_id>/som/*_bipole_scaled_filtered_data_PostBSEV_SOM.pkl
+        - Plots include:
+            - U-Matrix
+            - Pre-ictal overlay (flare colormap)
+            - Full data overlay (time progression, opacity by density)
     """
     if out_dir is None:
         out_dir = in_dir
