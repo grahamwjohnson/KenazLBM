@@ -186,7 +186,7 @@ To have more granular control of the model usage, get intermediate outputs like 
 ```python
 import os
 import torch
-from kenazlbm import _load_models  # make sure kenazlbm is installed
+from kenazlbm.hubconfig import _load_models # make sure kenazlbm is installed
 
 gpu_id = 0 # This example does not use Torch DDP
 
