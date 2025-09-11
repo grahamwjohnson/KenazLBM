@@ -1,5 +1,3 @@
-# Model Usage
-
 ## Option 2: Python Scripts
 
 To have more granular control of the model usage, get intermediate outputs like full size 1024-dimensional embeddings from the BSE, or forecast future emebeddings with the BSP, you can interact with the models directly in a python script as follows:
