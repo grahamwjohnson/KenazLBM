@@ -871,11 +871,19 @@ def toroidal_kohonen_subfunction_pytorch(
     # -----------------------------
     fig_overlay, ax_overlay = pl.subplots(figsize=(15, 10))
 
+    # -----------------------------
+    # Subtitle with number of tokens and hours
+    # -----------------------------
+    num_tokens = latent_z_input.shape[0]
+    coverage_sec = (num_tokens - 1) * stride_sec + win_sec
+    coverage_hours = coverage_sec / 3600.0
+    subtitle_text = f"{num_tokens:,} tokens ({coverage_hours:.1f} hours at {win_sec:.1f}s per token with overlap of {stride_sec:.1f}s)"
+
     # Plot U-Matrix base
     plot_hex_grid(
         ax_overlay,
         u_matrix_hex,
-        "U-Matrix with Data & Pre-Ictal Overlay",
+        f"Toroidal SOM U-Matrix with Overlays\n{subtitle_text}",
         cmap_str="bone_r",
         vmin=np.min(u_matrix_hex),
         vmax=np.max(u_matrix_hex) if np.max(u_matrix_hex) > 0 else 1,
