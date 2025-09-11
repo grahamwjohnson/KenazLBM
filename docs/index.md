@@ -1,6 +1,6 @@
 ```{image} img/Full_Logo.jpg
 :alt: Full_Logo
-:width: 50%
+:width: 70%
 :align: center
 ```
 
