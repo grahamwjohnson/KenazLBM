@@ -1,5 +1,3 @@
-# Model Usage
-
 ```{toctree}
 :maxdepth: 2
 
