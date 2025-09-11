@@ -877,7 +877,7 @@ def toroidal_kohonen_subfunction_pytorch(
     num_tokens = latent_z_input.shape[0]
     coverage_sec = (num_tokens - 1) * stride_sec + win_sec
     coverage_hours = coverage_sec / 3600.0
-    subtitle_text = f"{num_tokens:,} tokens ({coverage_hours:.1f} hours at {win_sec:.1f}s per token with overlap of {stride_sec:.1f}s)"
+    subtitle_text = f"{num_tokens:,} tokens ({coverage_hours:.1f} hours at {win_sec:.1f}s per token with stride of {stride_sec:.1f}s)"
 
     # Plot U-Matrix base
     plot_hex_grid(
