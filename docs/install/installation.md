@@ -1,3 +1,4 @@
+(mypage-install)=
 # Installation
 
 ## 1. Install Conda

@@ -31,6 +31,8 @@ All preprocessing and model runs will be conducted in the same directory.
 
 ### Step 2: Activate the Conda Environment:
 
+This step assumes you have installed the models as directed here: {ref}`mypage-install`
+
 ```bash
 conda activate lbm_env
 ```
