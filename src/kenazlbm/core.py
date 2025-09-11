@@ -17,6 +17,8 @@ import matplotlib.pylab as pl
 import matplotlib.patches as patches
 from scipy.ndimage import gaussian_filter
 import seaborn as sns
+from matplotlib import colors
+
 
 try:
     from .hubconfig import _get_conda_cache, CONFIGS, _load_models
@@ -545,7 +547,8 @@ def plot_hex_grid(ax, data, title, cmap_str='viridis', vmin=None, vmax=None):
     norm = pl.Normalize(vmin=vmin, vmax=vmax)  # Use vmin and vmax directly
     sm = pl.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
-    pl.colorbar(sm, ax=ax, label=title) # Add a label to the colorbar for clarity
+    cbar = pl.colorbar(sm, ax=ax, label=title, shrink=0.92, pad=0) # Add a label to the colorbar for clarity
+    cbar.ax.yaxis.set_label_position('left')
 
 def rewindow_data(
     z: np.ndarray,
@@ -627,6 +630,191 @@ def rewindow_data(
 
     return rewin_z
 
+# def toroidal_kohonen_subfunction_pytorch(
+#     atd_file,
+#     pat_ids_list,
+#     latent_z_windowed,
+#     start_datetimes_epoch,
+#     stop_datetimes_epoch,
+#     win_sec,
+#     stride_sec,
+#     savedir,
+#     som,
+#     plot_preictal_color_sec,
+#     sigma_plot=1,
+#     hits_log_view=True,
+#     umat_log_view=True,
+#     preictal_overlay_thresh = 0.5,
+#     sleep_overlay_thresh = 0.5,
+#     smooth_map_factor = 1,
+#     **kwargs):
+#     """
+#     Toroidal SOM with hexagonal grid for latent space analysis.
+#     """
+
+#     if not os.path.exists(savedir): os.makedirs(savedir)
+
+#     # Check for NaNs in files
+#     delete_file_idxs = []
+#     for i in range(latent_z_windowed.shape[0]):
+#         if np.sum(np.isnan(latent_z_windowed[i,:,:])) > 0:
+#             delete_file_idxs = delete_file_idxs + [i]
+#             print(f"WARNING: Deleted file {start_datetimes_epoch[i]} that had NaNs")
+
+#     # Delete entries/files in lists where there is NaN in latent space for that file
+#     latent_z_windowed = np.delete(latent_z_windowed, delete_file_idxs, axis=0)
+#     start_datetimes_epoch = [item for i, item in enumerate(start_datetimes_epoch) if i not in delete_file_idxs]
+#     stop_datetimes_epoch = [item for i, item in enumerate(stop_datetimes_epoch) if i not in delete_file_idxs]
+#     pat_ids_list = [item for i, item in enumerate(pat_ids_list) if i not in delete_file_idxs]
+
+#     # Flatten data into [miniepoch, dim] to feed into Kohonen, original data is [file, seq_miniepoch_in_file, latent_dim]
+#     latent_z_input = np.concatenate(latent_z_windowed, axis=0)
+#     pat_ids_input = [item for item in pat_ids_list for _ in range(latent_z_windowed[0].shape[0])]
+#     start_datetimes_input = [item + datetime.timedelta(seconds=stride_sec * i) for item in start_datetimes_epoch for i in range(latent_z_windowed[0].shape[0])]
+#     stop_datetimes_input = [item + datetime.timedelta(seconds=stride_sec * i) + datetime.timedelta(seconds=win_sec) for item in start_datetimes_epoch for i in range(latent_z_windowed[0].shape[0])]
+
+
+#     # PLOT PREPARATION
+
+#     # Get preictal weights and sleep stage for each data point
+#     # Pre-Ictal: 0 = interictal, 0.99999 = immediately before seizure (NOTE: ictal is labeled 0)
+#     # Sleep: -1 = unlabeled, 0 = wake, 1 = N1, 2 = N2, 3 = N3, 4 = REM
+#     preictal_float_input, ictal_float_input = preictal_label(atd_file, plot_preictal_color_sec, pat_ids_input, start_datetimes_input, stop_datetimes_input)
+#     print("\nFinished gathering pre-ictal and sleep labels on all data windows")
+
+#     # Get model weights and coordinates
+#     weights = som.get_weights()
+#     hex_coords = som.get_hex_coords()
+#     grid_size = som.grid_size
+#     rows, cols = grid_size
+#     som_batch_size = som.batch_size
+#     som_device = som.device
+
+#     # Initialize maps
+#     preictal_sums = np.zeros(grid_size)
+#     ictal_sums = np.zeros(grid_size)
+#     hit_map = np.zeros(grid_size)
+#     neuron_patient_dict = {}
+
+#     # SOM Inference on all data in batches
+#     for i in range(0, len(latent_z_input), som_batch_size):
+
+#         print(f"Running all data windows through trained Kohonen Map: {i}/{int(len(latent_z_input))}                  ", end='\r')
+
+#         batch = latent_z_input[i:i + som_batch_size]
+#         batch_patients = pat_ids_input[i:i + som_batch_size]
+#         batch_preictal_labels = preictal_float_input[i:i + som_batch_size]
+#         batch_ictal_labels = ictal_float_input[i:i + som_batch_size]
+
+#         batch = torch.tensor(batch, dtype=torch.float32, device=som_device)
+#         bmu_rows, bmu_cols = som.find_bmu(batch)
+#         bmu_rows, bmu_cols = bmu_rows.cpu().numpy(), bmu_cols.cpu().numpy()
+
+#         # Update hit map
+#         np.add.at(hit_map, (bmu_rows, bmu_cols), 1)
+
+#         # Process pre-ictal and sleep data
+#         for j, (bmu_row, bmu_col) in enumerate(zip(bmu_rows, bmu_cols)):
+#             # Accumulate preictal scores
+#             preictal_sums[bmu_row, bmu_col] += batch_preictal_labels[j]
+#             ictal_sums[bmu_row, bmu_col] += batch_ictal_labels[j]
+
+#         # Track unique patients per node
+#         for j, (bmu_row, bmu_col) in enumerate(zip(bmu_rows, bmu_cols)):
+#             if (bmu_row, bmu_col) not in neuron_patient_dict:
+#                 neuron_patient_dict[(bmu_row, bmu_col)] = set()
+#             neuron_patient_dict[(bmu_row, bmu_col)].add(batch_patients[j])
+
+#     print("\nFinished Kohonen inference on all data")
+
+#     # If hits want to be viewed logarithmically
+#     if hits_log_view:
+#         epsilon = np.finfo(float).eps
+#         hit_map = np.log(hit_map + epsilon)
+
+#     # Normalize preictal & ictal sums
+#     if np.max(preictal_sums) > np.min(preictal_sums):
+#         preictal_sums = (preictal_sums - np.min(preictal_sums)) / (np.max(preictal_sums) - np.min(preictal_sums))
+
+#     if np.max(ictal_sums) > np.min(ictal_sums):
+#         ictal_sums = (ictal_sums - np.min(ictal_sums)) / (np.max(ictal_sums) - np.min(ictal_sums))
+
+#     # Compute U-Matrix (using Euclidean distances on toroidal grid) for hexagonal grid
+#     u_matrix_hex = np.zeros(grid_size)
+#     for i in range(rows):
+#         for j in range(cols):
+#             current_weight = weights[i, j]
+#             neighbor_distances = []
+
+#             # Define hexagonal neighbors with toroidal wrapping
+#             if i % 2 == 0:
+#                 neighbor_offsets = [(0, 1), (0, -1), (-1, 0), (-1, -1), (1, 0), (1, -1)]
+#             else:
+#                 neighbor_offsets = [(0, 1), (0, -1), (-1, 1), (-1, 0), (1, 1), (1, 0)]
+
+#             for offset_row, offset_col in neighbor_offsets:
+#                 ni = (i + offset_row + rows) % rows
+#                 nj = (j + offset_col + cols) % cols
+#                 neighbor_weight = weights[ni, nj]
+#                 distance = np.linalg.norm(current_weight - neighbor_weight)
+#                 neighbor_distances.append(distance)
+
+#             u_matrix_hex[i, j] = np.mean(neighbor_distances) if neighbor_distances else 0
+
+#      # If U-Matrix is decided to be viewed logarithmically
+#     if umat_log_view:
+#         epsilon = np.finfo(float).eps
+#         u_matrix_hex = np.log(u_matrix_hex + epsilon)   
+
+#     # Apply smoothing
+#     preictal_sums_smoothed = gaussian_filter(preictal_sums, sigma=smooth_map_factor)
+#     if np.max(preictal_sums_smoothed) > np.min(preictal_sums_smoothed):
+#         preictal_sums_smoothed = (preictal_sums_smoothed - np.min(preictal_sums_smoothed)) / (np.max(preictal_sums_smoothed) - np.min(preictal_sums_smoothed))
+
+#     # 2D OVERLAY: U-Matrix + Pre-Ictal
+    
+#     # Create new figure for U-Matrix + Pre-Ictal Density Overlay
+#     fig_overlay, ax_overlay = pl.subplots(figsize=(10, 10))
+
+#     # Clip preictal_sums_smoothed at lower threshold 0.5
+#     overlay_preictal = np.clip(preictal_sums_smoothed, 0.0, 1.0)
+#     # overlay_preictal = np.clip(rescale_preictal_smoothed, 0.0, 1.0)
+#     # overlay_preictal = np.clip(preictal_sums, 0.0, 1.0)
+
+#     # Plot U-Matrix base
+#     plot_hex_grid(ax_overlay, u_matrix_hex, "U-Matrix with Pre-Ictal Overlay", cmap_str='bone_r', vmin=np.min(u_matrix_hex), vmax=np.max(u_matrix_hex) if np.max(u_matrix_hex) > 0 else 1)
+
+#     # Overlay Pre-Ictal smoothed density (alpha=0.6)
+#     # We'll replot on top with a semi-transparent flare colormap
+#     rows, cols = overlay_preictal.shape
+#     radius = 1.0
+#     height = np.sqrt(3) * radius
+#     cmap_overlay = sns.color_palette("flare", as_cmap=True)
+#     norm_overlay = pl.Normalize(vmin=preictal_overlay_thresh, vmax=1.0)
+
+#     for i in range(rows):
+#         for j in range(cols):
+#             x = j * 1.5 * radius
+#             y = i * height + (j % 2) * (height / 2)
+#             face_color = cmap_overlay(norm_overlay(overlay_preictal[i, j]))
+#             hexagon = patches.RegularPolygon((x, y), numVertices=6, radius=radius,
+#                                             orientation=np.radians(30),
+#                                             facecolor=face_color, alpha=0.7,
+#                                             edgecolor=None, linewidth=0)
+#             if overlay_preictal[i, j] >= preictal_overlay_thresh:
+#                 ax_overlay.add_patch(hexagon)
+
+#     # Optional: add a colorbar for the overlay
+#     sm_overlay = pl.cm.ScalarMappable(cmap=cmap_overlay, norm=norm_overlay)
+#     sm_overlay.set_array([])
+#     pl.colorbar(sm_overlay, ax=ax_overlay, label="Pre-Ictal Density (Clipped & Smoothed)")
+
+#     # Save overlay figure
+#     savename_overlay = savedir + f"/UMatrix_PreIctalOverlay_ToroidalSOM.jpg"
+#     pl.savefig(savename_overlay, dpi=600)
+    
+#     print(f"SOM Finished Plotting\n")
+
 def toroidal_kohonen_subfunction_pytorch(
     atd_file,
     pat_ids_list,
@@ -641,45 +829,65 @@ def toroidal_kohonen_subfunction_pytorch(
     sigma_plot=1,
     hits_log_view=True,
     umat_log_view=True,
-    preictal_overlay_thresh = 0.5,
-    sleep_overlay_thresh = 0.5,
-    smooth_map_factor = 1,
-    **kwargs):
+    preictal_overlay_thresh=0.5,
+    sleep_overlay_thresh=0.5,
+    smooth_map_factor=1,
+    **kwargs,
+):
     """
     Toroidal SOM with hexagonal grid for latent space analysis.
     """
 
-    if not os.path.exists(savedir): os.makedirs(savedir)
+    if not os.path.exists(savedir):
+        os.makedirs(savedir)
 
     # Check for NaNs in files
     delete_file_idxs = []
     for i in range(latent_z_windowed.shape[0]):
-        if np.sum(np.isnan(latent_z_windowed[i,:,:])) > 0:
+        if np.sum(np.isnan(latent_z_windowed[i, :, :])) > 0:
             delete_file_idxs = delete_file_idxs + [i]
             print(f"WARNING: Deleted file {start_datetimes_epoch[i]} that had NaNs")
 
-    # Delete entries/files in lists where there is NaN in latent space for that file
+    # Delete entries/files where there are NaNs
     latent_z_windowed = np.delete(latent_z_windowed, delete_file_idxs, axis=0)
-    start_datetimes_epoch = [item for i, item in enumerate(start_datetimes_epoch) if i not in delete_file_idxs]
-    stop_datetimes_epoch = [item for i, item in enumerate(stop_datetimes_epoch) if i not in delete_file_idxs]
-    pat_ids_list = [item for i, item in enumerate(pat_ids_list) if i not in delete_file_idxs]
+    start_datetimes_epoch = [
+        item for i, item in enumerate(start_datetimes_epoch) if i not in delete_file_idxs
+    ]
+    stop_datetimes_epoch = [
+        item for i, item in enumerate(stop_datetimes_epoch) if i not in delete_file_idxs
+    ]
+    pat_ids_list = [
+        item for i, item in enumerate(pat_ids_list) if i not in delete_file_idxs
+    ]
 
-    # Flatten data into [miniepoch, dim] to feed into Kohonen, original data is [file, seq_miniepoch_in_file, latent_dim]
+    # Flatten data into [miniepoch, dim]
     latent_z_input = np.concatenate(latent_z_windowed, axis=0)
-    pat_ids_input = [item for item in pat_ids_list for _ in range(latent_z_windowed[0].shape[0])]
-    start_datetimes_input = [item + datetime.timedelta(seconds=stride_sec * i) for item in start_datetimes_epoch for i in range(latent_z_windowed[0].shape[0])]
-    stop_datetimes_input = [item + datetime.timedelta(seconds=stride_sec * i) + datetime.timedelta(seconds=win_sec) for item in start_datetimes_epoch for i in range(latent_z_windowed[0].shape[0])]
+    pat_ids_input = [
+        item for item in pat_ids_list for _ in range(latent_z_windowed[0].shape[0])
+    ]
+    start_datetimes_input = [
+        item + datetime.timedelta(seconds=stride_sec * i)
+        for item in start_datetimes_epoch
+        for i in range(latent_z_windowed[0].shape[0])
+    ]
+    stop_datetimes_input = [
+        item + datetime.timedelta(seconds=stride_sec * i)
+        + datetime.timedelta(seconds=win_sec)
+        for item in start_datetimes_epoch
+        for i in range(latent_z_windowed[0].shape[0])
+    ]
 
-
-    # PLOT PREPARATION
-
-    # Get preictal weights and sleep stage for each data point
-    # Pre-Ictal: 0 = interictal, 0.99999 = immediately before seizure (NOTE: ictal is labeled 0)
-    # Sleep: -1 = unlabeled, 0 = wake, 1 = N1, 2 = N2, 3 = N3, 4 = REM
-    preictal_float_input, ictal_float_input = preictal_label(atd_file, plot_preictal_color_sec, pat_ids_input, start_datetimes_input, stop_datetimes_input)
+    # Get preictal weights and sleep stage
+    preictal_float_input, ictal_float_input = preictal_label(
+        atd_file,
+        plot_preictal_color_sec,
+        pat_ids_input,
+        start_datetimes_input,
+        stop_datetimes_input,
+    )
     print("\nFinished gathering pre-ictal and sleep labels on all data windows")
 
-    # Get model weights and coordinates
+    # Get model weights and coords
     weights = som.get_weights()
     hex_coords = som.get_hex_coords()
     grid_size = som.grid_size
@@ -693,61 +901,87 @@ def toroidal_kohonen_subfunction_pytorch(
     hit_map = np.zeros(grid_size)
     neuron_patient_dict = {}
 
-    # SOM Inference on all data in batches
+    # Keep BMUs for later plotting
+    bmu_rows_all = []
+    bmu_cols_all = []
+
+    # SOM Inference on all data
     for i in range(0, len(latent_z_input), som_batch_size):
+        print(
+            f"Running all data windows through trained Kohonen Map: {i}/{int(len(latent_z_input))}                  ",
+            end="\r",
+        )
 
-        print(f"Running all data windows through trained Kohonen Map: {i}/{int(len(latent_z_input))}                  ", end='\r')
-
-        batch = latent_z_input[i:i + som_batch_size]
-        batch_patients = pat_ids_input[i:i + som_batch_size]
-        batch_preictal_labels = preictal_float_input[i:i + som_batch_size]
-        batch_ictal_labels = ictal_float_input[i:i + som_batch_size]
+        batch = latent_z_input[i : i + som_batch_size]
+        batch_patients = pat_ids_input[i : i + som_batch_size]
+        batch_preictal_labels = preictal_float_input[i : i + som_batch_size]
+        batch_ictal_labels = ictal_float_input[i : i + som_batch_size]
 
         batch = torch.tensor(batch, dtype=torch.float32, device=som_device)
         bmu_rows, bmu_cols = som.find_bmu(batch)
         bmu_rows, bmu_cols = bmu_rows.cpu().numpy(), bmu_cols.cpu().numpy()
 
+        # Store BMUs
+        bmu_rows_all.extend(list(bmu_rows))
+        bmu_cols_all.extend(list(bmu_cols))
+
         # Update hit map
         np.add.at(hit_map, (bmu_rows, bmu_cols), 1)
 
-        # Process pre-ictal and sleep data
+        # Process preictal and ictal
         for j, (bmu_row, bmu_col) in enumerate(zip(bmu_rows, bmu_cols)):
-            # Accumulate preictal scores
             preictal_sums[bmu_row, bmu_col] += batch_preictal_labels[j]
             ictal_sums[bmu_row, bmu_col] += batch_ictal_labels[j]
 
-        # Track unique patients per node
+        # Track patients
         for j, (bmu_row, bmu_col) in enumerate(zip(bmu_rows, bmu_cols)):
             if (bmu_row, bmu_col) not in neuron_patient_dict:
                 neuron_patient_dict[(bmu_row, bmu_col)] = set()
             neuron_patient_dict[(bmu_row, bmu_col)].add(batch_patients[j])
 
+    bmu_rows_all = np.array(bmu_rows_all, dtype=int)
+    bmu_cols_all = np.array(bmu_cols_all, dtype=int)
+
     print("\nFinished Kohonen inference on all data")
 
-    # If hits want to be viewed logarithmically
     if hits_log_view:
         epsilon = np.finfo(float).eps
         hit_map = np.log(hit_map + epsilon)
 
-    # Normalize preictal & ictal sums
     if np.max(preictal_sums) > np.min(preictal_sums):
-        preictal_sums = (preictal_sums - np.min(preictal_sums)) / (np.max(preictal_sums) - np.min(preictal_sums))
-
+        preictal_sums = (preictal_sums - np.min(preictal_sums)) / (
+            np.max(preictal_sums) - np.min(preictal_sums)
+        )
     if np.max(ictal_sums) > np.min(ictal_sums):
-        ictal_sums = (ictal_sums - np.min(ictal_sums)) / (np.max(ictal_sums) - np.min(ictal_sums))
+        ictal_sums = (ictal_sums - np.min(ictal_sums)) / (
+            np.max(ictal_sums) - np.min(ictal_sums)
+        )
 
-    # Compute U-Matrix (using Euclidean distances on toroidal grid) for hexagonal grid
+    # Compute U-Matrix
     u_matrix_hex = np.zeros(grid_size)
     for i in range(rows):
         for j in range(cols):
             current_weight = weights[i, j]
             neighbor_distances = []
 
-            # Define hexagonal neighbors with toroidal wrapping
             if i % 2 == 0:
-                neighbor_offsets = [(0, 1), (0, -1), (-1, 0), (-1, -1), (1, 0), (1, -1)]
+                neighbor_offsets = [
+                    (0, 1),
+                    (0, -1),
+                    (-1, 0),
+                    (-1, -1),
+                    (1, 0),
+                    (1, -1),
+                ]
             else:
-                neighbor_offsets = [(0, 1), (0, -1), (-1, 1), (-1, 0), (1, 1), (1, 0)]
+                neighbor_offsets = [
+                    (0, 1),
+                    (0, -1),
+                    (-1, 1),
+                    (-1, 0),
+                    (1, 1),
+                    (1, 0),
+                ]
 
             for offset_row, offset_col in neighbor_offsets:
                 ni = (i + offset_row + rows) % rows
@@ -758,31 +992,125 @@ def toroidal_kohonen_subfunction_pytorch(
 
             u_matrix_hex[i, j] = np.mean(neighbor_distances) if neighbor_distances else 0
 
-     # If U-Matrix is decided to be viewed logarithmically
     if umat_log_view:
         epsilon = np.finfo(float).eps
-        u_matrix_hex = np.log(u_matrix_hex + epsilon)   
+        u_matrix_hex = np.log(u_matrix_hex + epsilon)
 
-    # Apply smoothing
+    # Smooth preictal sums
     preictal_sums_smoothed = gaussian_filter(preictal_sums, sigma=smooth_map_factor)
     if np.max(preictal_sums_smoothed) > np.min(preictal_sums_smoothed):
-        preictal_sums_smoothed = (preictal_sums_smoothed - np.min(preictal_sums_smoothed)) / (np.max(preictal_sums_smoothed) - np.min(preictal_sums_smoothed))
+        preictal_sums_smoothed = (preictal_sums_smoothed - np.min(preictal_sums_smoothed)) / (
+            np.max(preictal_sums_smoothed) - np.min(preictal_sums_smoothed)
+        )
 
-    # 2D OVERLAY: U-Matrix + Pre-Ictal
-    
-    # Create new figure for U-Matrix + Pre-Ictal Density Overlay
-    fig_overlay, ax_overlay = pl.subplots(figsize=(10, 10))
-
-    # Clip preictal_sums_smoothed at lower threshold 0.5
-    overlay_preictal = np.clip(preictal_sums_smoothed, 0.0, 1.0)
-    # overlay_preictal = np.clip(rescale_preictal_smoothed, 0.0, 1.0)
-    # overlay_preictal = np.clip(preictal_sums, 0.0, 1.0)
+    # -----------------------------
+    # Plotting
+    # -----------------------------
+    fig_overlay, ax_overlay = pl.subplots(figsize=(15, 10))
 
     # Plot U-Matrix base
-    plot_hex_grid(ax_overlay, u_matrix_hex, "U-Matrix with Pre-Ictal Overlay", cmap_str='bone_r', vmin=np.min(u_matrix_hex), vmax=np.max(u_matrix_hex) if np.max(u_matrix_hex) > 0 else 1)
+    plot_hex_grid(
+        ax_overlay,
+        u_matrix_hex,
+        "U-Matrix with Data & Pre-Ictal Overlay",
+        cmap_str="bone_r",
+        vmin=np.min(u_matrix_hex),
+        vmax=np.max(u_matrix_hex) if np.max(u_matrix_hex) > 0 else 1,
+    )
 
-    # Overlay Pre-Ictal smoothed density (alpha=0.6)
-    # We'll replot on top with a semi-transparent flare colormap
+    # -----------------------------
+    # gist_earth time gradient overlay
+    # -----------------------------
+    plot_patient_id = kwargs.get(
+        "plot_patient_id", pat_ids_list[0] if len(pat_ids_list) > 0 else None
+    )
+
+    if plot_patient_id is not None:
+        start_dt_arr = np.array(start_datetimes_input)
+        patient_mask = np.array([p == plot_patient_id for p in pat_ids_input], dtype=bool)
+        patient_indices = np.where(patient_mask)[0]
+
+        if patient_indices.size > 0:
+            patient_bmu_rows = bmu_rows_all[patient_indices]
+            patient_bmu_cols = bmu_cols_all[patient_indices]
+            times = np.array([start_dt_arr[idx].timestamp() for idx in patient_indices])
+            times_rel = times - times.min()
+            times_frac = times_rel / times_rel.max() if times_rel.max() > 0 else np.zeros_like(times_rel)
+            times_mapped = 0.1 + 0.8 * times_frac  # clip 10-90%
+
+            per_node_mean_time = np.full(grid_size, np.nan, dtype=float)
+            per_node_counts = np.zeros(grid_size, dtype=int)
+            for r, c, t in zip(patient_bmu_rows, patient_bmu_cols, times_mapped):
+                per_node_counts[r, c] += 1
+                if np.isnan(per_node_mean_time[r, c]):
+                    per_node_mean_time[r, c] = t
+                else:
+                    cur = per_node_mean_time[r, c]
+                    n = per_node_counts[r, c]
+                    per_node_mean_time[r, c] = (cur * (n - 1) + t) / n
+
+            max_count = per_node_counts.max() if per_node_counts.max() > 0 else 1
+            alpha_min, alpha_max = 0.12, 0.85
+            cmap_gist = pl.get_cmap("cubehelix")
+
+            radius = 1.0
+            height = np.sqrt(3) * radius
+            for i in range(rows):
+                for j in range(cols):
+                    if per_node_counts[i, j] > 0:
+                        tm = per_node_mean_time[i, j]
+                        face_color = cmap_gist(tm)
+                        alpha_node = alpha_min + (alpha_max - alpha_min) * (
+                            per_node_counts[i, j] / max_count
+                        )
+                        face_color = (
+                            face_color[0],
+                            face_color[1],
+                            face_color[2],
+                            alpha_node,
+                        )
+
+                        x = j * 1.5 * radius
+                        y = i * height + (j % 2) * (height / 2)
+                        hexagon = patches.RegularPolygon(
+                            (x, y),
+                            numVertices=6,
+                            radius=radius,
+                            orientation=np.radians(30),
+                            facecolor=face_color,
+                            alpha=None,
+                            edgecolor=None,
+                            linewidth=0,
+                        )
+                        ax_overlay.add_patch(hexagon)
+
+            # Clip cubehelix colormap between 0.1 and 0.9
+            cmap_cube_clipped = colors.LinearSegmentedColormap.from_list(
+                "cubehelix_clipped",
+                pl.cm.cubehelix(np.linspace(0.1, 0.8, 256))
+            )
+
+            norm_time = pl.Normalize(vmin=0.0, vmax=1.0)
+            sm_time = pl.cm.ScalarMappable(cmap=cmap_cube_clipped, norm=norm_time)
+            sm_time.set_array([])
+
+            cbar = pl.colorbar(sm_time, ax=ax_overlay, shrink=0.92, pad=0.01)
+            cbar.set_label(f"Time progression for patient {plot_patient_id} (start → end)")
+            cbar.ax.yaxis.set_label_position('left')  # move label to the left side
+
+            # Full 0.0–1.0 ticks preserved
+            cbar.set_ticks([0.0, 0.25, 0.5, 0.75, 1.0])
+            cbar.set_ticklabels(['Start', '', 'Mid', '', 'End'])
+
+        else:
+            print(f"Warning: patient {plot_patient_id} not found. Skipping gist_earth overlay.")
+    else:
+        print("No patient selected for gist_earth overlay. Skipping.")
+
+    # -----------------------------
+    # Pre-Ictal overlay (flare) on top
+    # -----------------------------
+    overlay_preictal = np.clip(preictal_sums_smoothed, 0.0, 1.0)
     rows, cols = overlay_preictal.shape
     radius = 1.0
     height = np.sqrt(3) * radius
@@ -791,26 +1119,33 @@ def toroidal_kohonen_subfunction_pytorch(
 
     for i in range(rows):
         for j in range(cols):
-            x = j * 1.5 * radius
-            y = i * height + (j % 2) * (height / 2)
-            face_color = cmap_overlay(norm_overlay(overlay_preictal[i, j]))
-            hexagon = patches.RegularPolygon((x, y), numVertices=6, radius=radius,
-                                            orientation=np.radians(30),
-                                            facecolor=face_color, alpha=0.7,
-                                            edgecolor=None, linewidth=0)
             if overlay_preictal[i, j] >= preictal_overlay_thresh:
+                x = j * 1.5 * radius
+                y = i * height + (j % 2) * (height / 2)
+                face_color = cmap_overlay(norm_overlay(overlay_preictal[i, j]))
+                hexagon = patches.RegularPolygon(
+                    (x, y),
+                    numVertices=6,
+                    radius=radius,
+                    orientation=np.radians(30),
+                    facecolor=face_color,
+                    alpha=0.7,
+                    edgecolor=None,
+                    linewidth=0,
+                )
                 ax_overlay.add_patch(hexagon)
 
-    # Optional: add a colorbar for the overlay
     sm_overlay = pl.cm.ScalarMappable(cmap=cmap_overlay, norm=norm_overlay)
     sm_overlay.set_array([])
-    pl.colorbar(sm_overlay, ax=ax_overlay, label="Pre-Ictal Density (Clipped & Smoothed)")
+    cbar = pl.colorbar(sm_overlay, ax=ax_overlay, label="Pre-Ictal Density (Clipped & Smoothed)", shrink=0.92, pad=0.05, fontsize=16)
+    cbar.ax.yaxis.set_label_position('left')  # move label to the left side
 
-    # Save overlay figure
-    savename_overlay = savedir + f"/UMatrix_PreIctalOverlay_ToroidalSOM.jpg"
+    # Save
+    savename_overlay = savedir + f"/UMatrix_PreIctalOverlay_ToroidalSOM_patient_{plot_patient_id}.jpg"
     pl.savefig(savename_overlay, dpi=600)
-    
-    print(f"SOM Finished Plotting\n")
+
+    print("SOM Finished Plotting\n")
+
 
 def run_som(in_dir, atd_file=None, out_dir=None, codename='commongonolek_sheldrake', plot_preictal_color_sec=4*60*60,
             file_windowseconds=1, file_strideseconds=1):
@@ -923,4 +1258,4 @@ if __name__ == "__main__":
     check_models()
     # For Development and Debugging
     # run_bse('/home/graham/Downloads/test_raw2')
-    run_som('/home/graham/Downloads/test_raw2')
+    run_som('/home/graham/Downloads/test_raw3')

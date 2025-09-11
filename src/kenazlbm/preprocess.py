@@ -538,12 +538,8 @@ def employ_norm(
         ax2.hist(filt_data.flatten(), 200, (-1, 1), 'b', alpha = 0.5, label='All Scaled File Data')
         ax2.title.set_text('Histogram Equalized Data:')
         ax2.legend()
-        if not os.path.exists(f"{hist_save_dir}/JPEGs"): os.makedirs(f"{hist_save_dir}/JPEGs")
-        if not os.path.exists(f"{hist_save_dir}/SVGs"): os.makedirs(f"{hist_save_dir}/SVGs")
-        savename_jpg = hist_save_dir + '/JPEGs/all_file_data_hist.jpg'
-        savename_svg = hist_save_dir + '/SVGs/all_file_data_hist.svg'
+        savename_jpg = hist_save_dir + '/all_file_data_hist.jpg'
         pl.savefig(savename_jpg, dpi=400)
-        pl.savefig(savename_svg)
         pl.close(fig)
         del fig
 
@@ -563,12 +559,8 @@ def employ_norm(
             ax2.hist(scaled_filt_data[ch,:], 200, (-1, 1), 'b', alpha = 0.5, label='All Scaled File Data for Channel')
             ax2.title.set_text('Histogram Equalized Data - Channel ID:' + str(ch))
             ax2.legend()
-            if not os.path.exists(f"{hist_save_dir}/JPEGs"): os.makedirs(f"{hist_save_dir}/JPEGs")
-            if not os.path.exists(f"{hist_save_dir}/SVGs"): os.makedirs(f"{hist_save_dir}/SVGs")
-            savename_jpg = hist_save_dir + '/JPEGs/' + 'ch' + str(ch) + '.jpg'
-            savename_svg = hist_save_dir + '/SVGs/' + 'ch' + str(ch) + '.svg'
+            savename_jpg = f"{hist_save_dir}/ch{str(ch)}.jpg"
             pl.savefig(savename_jpg, dpi=400)
-            pl.savefig(savename_svg)
             pl.close(fig)
             del fig
 
