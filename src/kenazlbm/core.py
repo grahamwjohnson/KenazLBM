@@ -18,6 +18,7 @@ import matplotlib.patches as patches
 from scipy.ndimage import gaussian_filter
 import seaborn as sns
 from matplotlib import colors
+import time
 
 
 try:
@@ -340,6 +341,9 @@ def bse_subprocess(gpu_id, world_size, codename, in_dir, out_dir):
                 with open(outfile_bsev, 'wb') as f: pickle.dump(bsev_z_all, f)
             
                 count += 1
+
+                # Add delay to help avoid collisions
+                time.sleep(gpu_id * 0.5)
 
     destroy_process_group()
 
