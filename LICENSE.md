@@ -1,5 +1,5 @@
 Academic-Only License (AOL) v1.0 — Strict
-Copyright (c) [2025] [copyright holder]
+Copyright (c) [2025] [Graham W. Johnson]
 
 Permission is hereby granted, free of charge, to any person or entity
 affiliated with an accredited academic institution ("Permitted Academic"),
